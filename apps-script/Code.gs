@@ -44,6 +44,8 @@ function setup() {
   mk(HOJA_CAPTURAS, COLS_CAPTURAS);
   const cfg = mk(HOJA_CONFIG, ['clave', 'valor']);
   if (cfg.getLastRow() < 2) cfg.appendRow(['pin', 'black2026']);
+  const filas = cfg.getDataRange().getValues().map(r => String(r[0]).toLowerCase());
+  if (filas.indexOf('gemini_key') < 0) cfg.appendRow(['gemini_key', '']);
   carpeta_();
   Logger.log('Listo. Cambia el PIN en la pestaña Config si quieres.');
 }
@@ -66,7 +68,101 @@ function doPost(e) {
   try { b = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'json' }); }
   if (!pinOk_(b.pin)) return json_({ ok: false, error: 'pin' });
   if (b.action === 'guardar') return json_(guardar_(b.captura || {}, b.foto));
+  if (b.action === 'leer') return json_(leer_(b.foto, b.listas || {}));
   return json_({ ok: false, error: 'accion' });
+}
+
+/* ---------- lectura de la foto con Gemini (nivel gratis) ----------
+ * La clave va en la pestaña Config, fila "gemini_key" (o varias claves separadas por coma,
+ * de proyectos distintos, para tener más lecturas gratis al día).
+ * Si no hay clave o se acaba la cuota, la app usa el lector básico del teléfono. */
+const MODELOS_GEMINI = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-flash-latest'];
+
+function config_(clave) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_CONFIG);
+  if (!sh) return '';
+  const r = sh.getDataRange().getValues().find(x => String(x[0]).trim().toLowerCase() === clave);
+  return r ? String(r[1] || '').trim() : '';
+}
+
+function promptLectura_(listas) {
+  const cats = (listas.categorias || []).join(', ');
+  const tiendas = (listas.tiendas || []).join(', ');
+  return [
+    'Eres un asistente de un retail de electrodomésticos en Ecuador. La foto muestra un preciador o cartel de precio,',
+    'impreso o escrito a mano, a veces pegado sobre la caja del producto.',
+    'Extrae SOLO lo que se puede leer o ver en la foto. Si algo no se ve, usa null. No inventes ni completes con conocimiento externo.',
+    'Puedes usar lo impreso en la caja (marca, serie, pulgadas, tecnología) para describir el producto.',
+    '',
+    'Reglas de precios (muy importante):',
+    '- Un precio que aparece solo, sin palabras de crédito, es PRECIO DE CONTADO.',
+    '- Es CRÉDITO solo si el cartel dice cuota, cuotas, meses, semanas, quincenas, semanal, mensual, "x 12", "desde ... al mes" o similar.',
+    '- Nunca pongas una cuota en precio_contado ni el precio de contado en cuota.',
+    '- precio_antes solo si hay un precio tachado o que diga antes/PVP/precio normal.',
+    '- Los precios van como número en dólares (250, 1299.99), sin símbolo.',
+    '',
+    'Otros campos:',
+    '- tienda: la cadena que pone el cartel si se ve su nombre o logo. Opciones conocidas: ' + tiendas + '. Si no se ve, null.',
+    '- codigo: el código o modelo tal como está escrito (a mano o impreso), respetando letras, números y guiones.',
+    '- categoria: una de: ' + cats + '.',
+    '- producto: descripción corta y clara (tipo + marca + medida + tecnología), por ejemplo "TV Philips 43\" FHD LED Smart TV".',
+    '- frecuencia de la cuota: mensual, quincenal o semanal; null si no se sabe.',
+    '- regalo: regalos o promos extra que diga el cartel (ej. "Remate de bodega", "lleva licuadora gratis").',
+    '',
+    'Responde SOLO con este JSON:',
+    '{"tienda":null,"producto":null,"marca":null,"codigo":null,"categoria":null,"precio_contado":null,"precio_antes":null,',
+    '"cuota":null,"num_cuotas":null,"frecuencia":null,"entrada":null,"plan_credito":null,"regalo":null,"legible":true}'
+  ].join('\n');
+}
+
+function leer_(fotoBase64, listas) {
+  const claves = (config_('gemini_key') || PropertiesService.getScriptProperties().getProperty('GEMINI_KEY') || '')
+    .split(/[,\s]+/).filter(Boolean);
+  if (!claves.length) return { ok: false, error: 'sin_clave' };
+  if (!fotoBase64) return { ok: false, error: 'sin_foto' };
+  const data = String(fotoBase64).replace(/^data:image\/\w+;base64,/, '');
+  const preferido = config_('gemini_modelo');
+  const modelos = preferido ? [preferido].concat(MODELOS_GEMINI.filter(m => m !== preferido)) : MODELOS_GEMINI;
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: promptLectura_(listas) }, { inline_data: { mime_type: 'image/jpeg', data: data } }] }],
+    generationConfig: { temperature: 0, responseMimeType: 'application/json' }
+  });
+  let ultimo = '';
+  for (const clave of claves) {
+    for (const modelo of modelos) {
+      const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + modelo + ':generateContent', {
+        method: 'post', contentType: 'application/json', payload: body, muteHttpExceptions: true,
+        headers: { 'x-goog-api-key': clave }
+      });
+      const code = r.getResponseCode();
+      if (code === 200) {
+        try {
+          const j = JSON.parse(r.getContentText());
+          let t = j.candidates[0].content.parts.map(x => x.text || '').join('');
+          t = t.replace(/^```(json)?/i, '').replace(/```$/, '').trim();
+          return { ok: true, modelo: modelo, datos: JSON.parse(t) };
+        } catch (err) { ultimo = 'respuesta'; continue; }
+      }
+      ultimo = String(code);
+      if (code === 404 || code === 400) continue;      // modelo no disponible: probar el siguiente
+      if (code === 429) continue;                      // cuota agotada: siguiente modelo o clave
+      if (code === 403 || code === 401) break;         // clave inválida: siguiente clave
+    }
+  }
+  return { ok: false, error: 'gemini_' + ultimo };
+}
+
+/* Para probar la clave desde el editor: elige probarGemini y dale Ejecutar. */
+function probarGemini() {
+  const claves = (config_('gemini_key') || '').split(/[,\s]+/).filter(Boolean);
+  if (!claves.length) { Logger.log('Falta la clave: pon gemini_key en la pestaña Config.'); return; }
+  for (const m of MODELOS_GEMINI) {
+    const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { 'x-goog-api-key': claves[0] },
+      payload: JSON.stringify({ contents: [{ parts: [{ text: 'Responde solo: ok' }] }] })
+    });
+    Logger.log(m + ' → ' + r.getResponseCode());
+  }
 }
 
 /* ---------- lógica ---------- */

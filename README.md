@@ -123,6 +123,19 @@ Los teléfonos bajan los precios al abrir, se actualizan cada 10 minutos o con *
 3. Revisa que aparezcan en la pestaña **Capturas** del Sheet.
 4. **Compartir:** manda el link por WhatsApp o haz un QR. En el teléfono, *Agregar a pantalla de inicio* para que quede como app.
 
+### Paso 9 · Lectura con IA (gratis, recomendado)
+
+El lector básico del teléfono no entiende letra a mano. La IA de Google (Gemini) sí, y tiene un nivel gratis sin tarjeta.
+
+1. Entra a <https://aistudio.google.com/apikey> con tu Gmail → **Create API key** → copia la clave.
+2. En el Sheet, pestaña **Config**, fila `gemini_key`: pega la clave en la columna B.
+   (Para más lecturas al día puedes crear claves en proyectos distintos y ponerlas separadas por coma.)
+3. En Apps Script pega el `Code.gs` nuevo del repositorio, guarda, elige **probarGemini** → **Ejecutar**. En el registro debe salir al menos un modelo con **200**.
+4. **Implementar → Administrar implementaciones → ✏️ → Versión: Nueva versión → Implementar.** La URL no cambia.
+
+Si se acaba la cuota del día o no hay señal, la app usa sola el lector básico.
+Nota: en el nivel gratis Google puede usar las fotos para mejorar sus productos; son fotos de carteles de precio, no datos de clientes.
+
 ---
 
 ## Cada mes
