@@ -20,5 +20,11 @@ jobs:
           printf '{"action":"leer","pin":"x","foto":"data:image/jpeg;base64,%s"}' "$B64" > body.json
           ls -la body.json
           curl -sSL -H 'Content-Type: text/plain;charset=utf-8' --data-binary @body.json "$URL" | head -c 600; echo
+          echo "=== POST con foto REAL grande, sin PIN"
+          python3 -c "from PIL import Image;im=Image.open('.github/foto-real.jpg');im=im.resize((1600,int(1600*im.height/im.width)));im.save('grande.jpg',quality=80)" || cp .github/foto-real.jpg grande.jpg
+          B64=$(base64 -w0 grande.jpg)
+          printf '{"action":"leer","pin":"x","foto":"data:image/jpeg;base64,%s"}' "$B64" > body2.json
+          ls -la body2.json
+          curl -sSL -H 'Content-Type: text/plain;charset=utf-8' --data-binary @body2.json "$URL" | head -c 600; echo
           echo "=== Encabezados del POST"
           curl -sS -D - -o /dev/null -H 'Content-Type: text/plain;charset=utf-8' --data '{"action":"leer"}' "$URL" | head -20
