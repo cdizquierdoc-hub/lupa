@@ -17,7 +17,7 @@
  *  - Config   : PIN del equipo.
  */
 
-const VERSION_SCRIPT = '2026.11.09-ia2';
+const VERSION_SCRIPT = '2026.11.09-ia3';
 const HOJA_CATALOGO = 'Catalogo';
 const HOJA_CAPTURAS = 'Capturas';
 const HOJA_CONFIG = 'Config';
@@ -74,7 +74,7 @@ function doPost_(e) {
   try { b = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'json' }); }
   if (!pinOk_(b.pin)) return json_({ ok: false, error: 'pin' });
   if (b.action === 'guardar') return json_(guardar_(b.captura || {}, b.foto));
-  if (b.action === 'leer') return json_(leer_(b.foto, b.listas || {}));
+  if (b.action === 'leer') return json_(leerFoto_(b.foto, b.listas || {}));
   return json_({ ok: false, error: 'accion' });
 }
 
@@ -121,7 +121,7 @@ function promptLectura_(listas) {
   ].join('\n');
 }
 
-function leer_(fotoBase64, listas) {
+function leerFoto_(fotoBase64, listas) {
   const claves = (config_('gemini_key') || PropertiesService.getScriptProperties().getProperty('GEMINI_KEY') || '')
     .split(/[,\s]+/).filter(Boolean);
   if (!claves.length) return { ok: false, error: 'sin_clave' };
