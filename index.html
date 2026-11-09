@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>CHISME</title>
+<meta name="description" content="Comparador Hábil de Información Sobre Movidas Enemigas">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Una columna para teléfono, pestañas fijas abajo; los precios van en "preciador" amarillo */
+:root{
+  --paper:#EEF1F5; --card:#FFFFFF; --ink:#111827; --muted:#5A6476; --line:#D8DEE7;
+  --tag:#FFD000; --tag-ink:#111111; --brand:#1E3BB8; --brand-ink:#FFFFFF;
+  --good:#0B7F45; --good-bg:#E3F5EA; --bad:#C0262D; --bad-bg:#FCE6E7; --warn:#9A5B00; --warn-bg:#FFF1D6;
+  --shadow:0 1px 2px rgba(17,24,39,.06),0 4px 14px rgba(17,24,39,.06);
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#0C1016; --card:#151B25; --ink:#E9EDF3; --muted:#9AA4B5; --line:#273142;
+  --brand:#7D98FF; --brand-ink:#0C1016;
+  --good:#46CF85; --good-bg:#12301F; --bad:#FF7479; --bad-bg:#3A1619; --warn:#F5B547; --warn-bg:#33260D;
+  --shadow:0 1px 2px rgba(0,0,0,.4); color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.4;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+img{max-width:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+.top{position:sticky;top:0;z-index:5;background:#111827;color:#EEF1F5;
+  padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top-in{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.logo{font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1;text-transform:uppercase}
+.logo b{background:var(--tag);color:var(--tag-ink);padding:1px 6px 0;margin-left:4px;border-radius:3px}
+.top .who{margin-left:auto;font-size:13px;opacity:.8;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.net{width:9px;height:9px;border-radius:50%;background:#46CF85;flex:none}
+.net.off{background:#FF7479}
+
+main{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:14px;padding-bottom:calc(96px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);
+  padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px));padding-top:6px;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px))}
+.tabs-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.tab{border:0;background:none;padding:6px 4px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:12px;font-weight:600}
+.tab svg{width:24px;height:24px}
+.tab[aria-current="true"]{color:var(--ink);background:var(--paper)}
+
+.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+h2{font-family:var(--f-display);font-weight:700;font-size:22px;line-height:1.1;margin:0;text-wrap:balance;text-transform:uppercase}
+.lbl{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)} .small{font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid2>*{min-width:0} .full{grid-column:1/-1}
+.btn{border:0;border-radius:12px;padding:14px 16px;font-weight:700;font-size:16px;background:var(--brand);color:var(--brand-ink);display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.small{min-height:38px;padding:8px 12px;font-size:14px;border-radius:10px}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.block{width:100%}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.field input,.field select{width:100%;border:1.5px solid var(--line);background:var(--paper);border-radius:10px;padding:11px 12px;font-size:16px;min-width:0}
+.field.warn input{border-color:var(--warn)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.chip{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-weight:600;font-size:15px;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.banner{border-radius:12px;padding:12px 14px;font-size:14px;background:var(--warn-bg);color:var(--warn)}
+
+.shoot{border:2.5px dashed var(--line);border-radius:16px;background:var(--paper);min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;text-align:center;position:relative;overflow:hidden}
+.shoot .big{width:78px;height:78px;border-radius:50%;background:var(--tag);color:var(--tag-ink);display:grid;place-items:center}
+.shoot .big svg{width:38px;height:38px}
+.shoot strong{font-family:var(--f-display);font-size:22px;text-transform:uppercase}
+.shoot input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.preview{width:100%;max-height:340px;object-fit:contain;border-radius:12px;background:var(--paper);display:block}
+.scanning{position:relative}
+.scanning::after{content:"";position:absolute;left:0;right:0;height:3px;background:var(--tag);box-shadow:0 0 12px var(--tag);top:0;animation:scan 1.6s ease-in-out infinite alternate}
+@keyframes scan{to{top:calc(100% - 3px)}}
+@media (prefers-reduced-motion:reduce){.scanning::after{animation:none;top:50%}}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand);width:0;transition:width .2s}
+
+.tag{background:var(--tag);color:var(--tag-ink);border-radius:8px;padding:8px 12px 6px;display:flex;flex-direction:column;line-height:1;min-width:0}
+.tag .w{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.75}
+.tag .p{font-family:var(--f-display);font-weight:800;font-size:38px;font-variant-numeric:tabular-nums}
+.tag .p small{font-size:20px;vertical-align:top;margin-right:1px}
+.tag .c{font-size:13px;font-weight:600;margin-top:2px}
+.tag.ours{background:var(--ink);color:var(--paper)}
+.duel{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.verdict{border-radius:12px;padding:12px 14px}
+.verdict .v-t{font-family:var(--f-display);font-weight:700;font-size:24px;text-transform:uppercase;line-height:1}
+.verdict .v-s{font-weight:500;font-size:14px;margin-top:2px}
+.v-good{background:var(--good-bg);color:var(--good)} .v-bad{background:var(--bad-bg);color:var(--bad)}
+.v-warn{background:var(--warn-bg);color:var(--warn)} .v-none{background:var(--paper);color:var(--muted)}
+
+.chains{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.chain{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
+.chain:first-child{border-top:0}
+.chain .cn{font-weight:700;font-size:14px;min-width:68px}
+.chain .cd{font-size:13px;color:var(--muted);min-width:0}
+.chain .cp{font-family:var(--f-display);font-weight:700;font-size:22px;text-align:right}
+.diff{font-size:12px;font-weight:700;display:block;text-align:right;font-family:var(--f-body)}
+.diff.good{color:var(--good)} .diff.bad{color:var(--bad)}
+.alt{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.alt-h{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+.alt-n{font-weight:700;min-width:0}
+.alt-p{font-family:var(--f-display);font-weight:700;font-size:22px;white-space:nowrap}
+.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--paper);color:var(--muted)}
+.pill.good{background:var(--good-bg);color:var(--good)} .pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)} .pill.brand{background:var(--ink);color:var(--paper)}
+.speech{background:var(--paper);border-left:4px solid var(--tag);border-radius:10px;padding:12px 14px;font-size:16px}
+details summary{cursor:pointer;font-size:14px;color:var(--muted)}
+details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:10px;border-radius:8px;margin:8px 0 0}
+
+.feed{display:flex;flex-direction:column;gap:10px}
+.item{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;background:var(--card);border-radius:12px;padding:10px;box-shadow:var(--shadow);border:0;text-align:left;width:100%}
+.thumb{width:64px;height:64px;border-radius:8px;object-fit:cover;background:var(--paper);display:block}
+.item .t{font-weight:700;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.item .m{font-size:13px;color:var(--muted)}
+.item .pr{font-family:var(--f-display);font-weight:700;font-size:20px;text-align:right}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--card);border-radius:12px;padding:10px;box-shadow:var(--shadow)}
+.stat b{display:block;font-family:var(--f-display);font-size:26px;line-height:1}
+.stat span{font-size:12px;color:var(--muted);font-weight:600}
+.stat.good b{color:var(--good)} .stat.bad b{color:var(--bad)}
+
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--paper);width:100%;max-width:640px;max-height:92%;overflow-y:auto;border-radius:18px 18px 0 0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:14px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-weight:600;z-index:30;font-size:14px;max-width:90%;text-align:center}
+.spin{width:18px;height:18px;border-radius:50%;border:2.5px solid currentColor;border-right-color:transparent;animation:sp .8s linear infinite;display:inline-block;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:28px 12px;color:var(--muted)}
+.empty strong{display:block;color:var(--ink);font-family:var(--f-display);font-size:20px;text-transform:uppercase;margin-bottom:4px}
+@media (max-width:380px){.duel{grid-template-columns:1fr}.tag .p{font-size:34px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <div class="logo">CHISME<b>Black</b></div>
+  <div class="who" id="who"></div>
+  <span class="net" id="net" title="Conexión"></span>
+</div></header>
+<main id="app"></main>
+<nav class="tabs"><div class="tabs-in" id="tabs"></div></nav>
+<div id="sheet"></div>
+<div id="toastBox"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="parser.js"></script>
+<script src="matcher.js"></script>
+<script src="config.js"></script>
+<script>
+/* ============ configuración (config.js) ============ */
+const CFG=Object.assign({
+  API_URL:"",
+  COMPETIDORES:["Artefacta","Marcimex","Comandato","Almacenes España","Jaher","Al Precio","Tía","Pycca","La Ganga","Otro"],
+  CADENAS:["Crecos","Orve Hogar","Japón","Motozone","Pagamenos"],
+  AGENCIAS:[]
+},window.CAZA_CONFIG||{});
+const CATEGORIAS=Matcher.CATS;
+const FRECUENCIAS=["mensual","quincenal","semanal"];
+const ICON={
+ cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+ list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
+ search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>'
+};
+
+/* ============ estado ============ */
+const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch{return false}}};
+const S={tab:"capturar",flow:"idle",photo:null,photoUrl:"",draft:null,result:null,ocrPct:0,ocrMsg:"",
+  catalog:[],bySku:new Map(),caps:ls.get("ch_caps",[]),capsLoaded:false,catUpdated:ls.get("ch_cat_t",0),
+  feedFilter:"Todas",feedQ:"",searchQ:"",
+  perfil:ls.get("ch_perfil",null),tienda:ls.get("ch_tienda","Artefacta"),online:navigator.onLine};
+
+/* ============ utilidades ============ */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm=CazaParser.norm;
+const compact=s=>norm(s).replace(/[^a-z0-9]/g,"");
+function money(v){
+  if(v==null||v==="")return null; if(typeof v==="number")return isFinite(v)?v:null;
+  let s=String(v).replace(/[^\d.,-]/g,""); if(!s)return null;
+  const lc=s.lastIndexOf(","),ld=s.lastIndexOf(".");
+  if(lc>-1&&ld>-1){s=lc>ld?s.replace(/\./g,"").replace(",","."):s.replace(/,/g,"");}
+  else if(lc>-1){s=(s.length-lc-1===2||s.length-lc-1===1)?s.replace(",","."):s.replace(/,/g,"");}
+  else if(ld>-1&&s.length-ld-1===3){s=s.replace(/\./g,"");}
+  const n=parseFloat(s); return isFinite(n)?n:null;
+}
+const fmt=n=>n==null||n===""?"—":"$"+Number(n).toLocaleString("es-EC",{minimumFractionDigits:Number(n)%1?2:0,maximumFractionDigits:2});
+function priceHTML(n){if(n==null||n==="")return "—";const [a,b]=Number(n).toFixed(2).split(".");return `<small>$</small>${Number(a).toLocaleString("es-EC")}${b!=="00"?`<small>.${b}</small>`:""}`;}
+const cuotaTxt=o=>o&&money(o.cuota)?`${money(o.ncuotas)?money(o.ncuotas)+" × ":""}${fmt(money(o.cuota))}${o.frecuencia?" "+o.frecuencia:""}`:"";
+const ago=t=>{const m=Math.round((Date.now()-t)/60000);if(m<1)return "ahora";if(m<60)return `hace ${m} min`;const h=Math.round(m/60);if(h<24)return `hace ${h} h`;return new Date(t).toLocaleDateString("es-EC",{day:"numeric",month:"short"});};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function toast(msg,ms=2800){const b=$("#toastBox");b.innerHTML=`<div class="toast" role="status">${esc(msg)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>b.innerHTML="",ms);}
+async function copy(text){try{await navigator.clipboard.writeText(text);toast("Copiado");}catch{toast("Mantén presionado el texto para copiarlo");}}
+const toMonthly=(c,f)=>c==null?null:f==="semanal"?c*52/12:f==="quincenal"?c*2:c;
+
+/* ============ API (Google Apps Script) ============ */
+async function apiGet(action,extra=""){
+  const r=await fetch(`${CFG.API_URL}?action=${action}&pin=${encodeURIComponent(S.perfil?.pin||"")}${extra}`);
+  const j=await r.json(); if(!j.ok)throw new Error(j.error||"error"); return j;
+}
+async function apiPost(body){
+  const r=await fetch(CFG.API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...body,pin:S.perfil?.pin||""})});
+  const j=await r.json(); if(!j.ok)throw new Error(j.error||"error"); return j;
+}
+
+/* ============ maestro de códigos (PILAS) ============ */
+// Todos los códigos de Cresa con marca, capacidad, tipo y grupo. Sirve para CLASIFICAR y para completar
+// el catálogo; nunca se ofrece al cliente porque la mayoría no tiene stock.
+const MAESTRO={lista:[],porCodigo:new Map(),marcas:[],listo:false,vendidos:[]};
+function parseTSV(txt){const out=[];for(const ln of txt.split("\n").slice(1)){if(!ln)continue;const [cod,desc,marca,cap,sub,linea,grupo]=ln.split("\t");if(cod)out.push({cod,modelo:cod,desc:desc||"",marca:marca||"",cap:cap||"",sub:sub||"",linea:linea||"",grupo:grupo||""});}return out;}
+async function loadMaestro(){
+  try{
+    const [rm,rv]=await Promise.all([fetch("maestro.tsv",{cache:"no-cache"}),fetch("vendidos.tsv",{cache:"no-cache"}).catch(()=>null)]);
+    if(!rm.ok)throw 0;
+    const marcas=new Set();
+    const mete=row=>{const k=compact(row.cod);if(MAESTRO.porCodigo.has(k))return MAESTRO.porCodigo.get(k);MAESTRO.lista.push(row);MAESTRO.porCodigo.set(k,row);if(row.marca&&row.marca.length>2)marcas.add(row.marca);return row;};
+    const vend=rv&&rv.ok?parseTSV(await rv.text()):[];
+    MAESTRO.vendidos=vend.map(mete);
+    parseTSV(await rm.text()).forEach(mete);
+    MAESTRO.marcas=[...marcas];MAESTRO.listo=true;
+    // perfiles en segundo plano para que la primera comparación sea rápida
+    let i=0;const step=()=>{const end=Math.min(MAESTRO.lista.length,i+800);for(;i<end;i++){const p=MAESTRO.lista[i];p._prof=Matcher.profile(p);}if(i<MAESTRO.lista.length)setTimeout(step,0);};step();
+    rebuildCatalog(S.catRows||[]);
+    if(S.flow==="idle"||S.flow==="result")render();
+  }catch{MAESTRO.listo=false;}
+}
+function maestroDe(codigo){const k=compact(codigo);if(!k)return null;return MAESTRO.porCodigo.get(k)||null;}
+
+/* ============ catálogo Black (lo que sí vendemos) ============ */
+const ALIAS_CAT={sku:"codigo",cod:"codigo",modelo:"codigo",codigo_cresa:"codigo",item:"codigo",descripcion:"nombre",producto:"nombre",linea:"categoria",precio:"precio_contado",contado:"precio_contado",pvp:"precio_normal",antes:"precio_normal",valor_cuota:"cuota",cuotas:"num_cuotas",plazo:"num_cuotas",plan:"plan_credito",credito:"plan_credito",existencia:"stock",inventario:"stock",unidades:"stock"};
+function normRow(r){const o={};for(const [k,v] of Object.entries(r)){const kk=norm(k).replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"");o[ALIAS_CAT[kk]||kk]=v;}return o;}
+function sinStock(v){if(v==null||String(v).trim()==="")return false;const n=norm(v).trim();if(/^(no|agotado|sin stock|0+([.,]0+)?)$/.test(n))return true;const x=money(v);return x!=null&&x<=0;}
+function prettyName(m){
+  const g=(m.grupo||"").toLowerCase(),sub=(m.sub||"").toLowerCase(),cap=m.cap||"";
+  const base=/celulares|telefonia/.test(g)?"celular":g.replace(/(as|os)$/,a=>a[0]).replace(/(es)$/,"").replace(/s$/,"");
+  const marca=(m.marca||"").length<=3?m.marca:(m.marca||"").charAt(0).toUpperCase()+(m.marca||"").slice(1).toLowerCase();
+  const seen=new Set(),out=[];
+  for(const w of [base,sub,marca,cap].join(" ").split(/\s+/)){const k=norm(w);if(!k)continue;if(seen.has(k)&&!/^[\d.,-]+$/.test(k))continue;seen.add(k);out.push(w);}
+  const t=out.join(" ");return t.charAt(0).toUpperCase()+t.slice(1);
+}
+function rebuildCatalog(rows){
+  S.catRows=rows;
+  const m=new Map();let sinSt=0;const sinStockSet=new Set();
+  for(const r0 of rows){
+    const r=normRow(r0);const k=String(r.codigo||"").trim();if(!k)continue;
+    if(sinStock(r.stock)){sinSt++;sinStockSet.add(compact(k));continue;}
+    const ms=maestroDe(k);
+    if(!m.has(k))m.set(k,{sku:k,modelo:k,nombre:r.nombre||(ms?prettyName(ms):k),marca:r.marca||ms?.marca||"",categoria:r.categoria||"",
+      cap:ms?.cap||"",sub:ms?.sub||"",linea:ms?.linea||"",grupo:ms?.grupo||"",desc:ms?.desc||"",enMaestro:!!ms,cadenas:[]});
+    const g=m.get(k);
+    g.cadenas.push({cadena:r.cadena||"",contado:money(r.precio_contado),normal:money(r.precio_normal),cuota:money(r.cuota),ncuotas:money(r.num_cuotas),frecuencia:norm(r.frecuencia||""),entrada:money(r.entrada),plan:r.plan_credito||"",promo:r.promo||"",stock:money(r.stock)});
+  }
+  for(const g of m.values()){
+    g.cadenas.sort((a,b)=>(CFG.CADENAS.indexOf(a.cadena)+99)%99-(CFG.CADENAS.indexOf(b.cadena)+99)%99);
+    const ps=g.cadenas.map(c=>c.contado).filter(v=>v!=null);g.min=ps.length?Math.min(...ps):null;
+    const cs=g.cadenas.filter(c=>c.cuota!=null).map(c=>toMonthly(c.cuota,c.frecuencia));g.minCuotaMes=cs.length?Math.min(...cs):null;
+    g.best=g.cadenas.filter(c=>c.contado!=null).sort((a,b)=>a.contado-b.contado)[0]||g.cadenas[0];
+    g._prof=Matcher.profile(g);g.categoria=g._prof.cat||g.categoria;
+    g.key=norm([g.nombre,g.marca,g.modelo,g.categoria,g.sku,g.sub,g.cap].join(" "));
+  }
+  S.conPrecio=m.size;
+  for(const v of MAESTRO.vendidos){
+    if(m.has(v.cod)||sinStockSet.has(compact(v.cod)))continue;
+    const g={sku:v.cod,modelo:v.cod,nombre:prettyName(v),marca:v.marca,categoria:"",cap:v.cap,sub:v.sub,linea:v.linea,grupo:v.grupo,desc:v.desc,
+      enMaestro:true,vendido:true,sinPrecio:true,cadenas:[],min:null,minCuotaMes:null,best:null};
+    g._prof=Matcher.profile(g);g.categoria=g._prof.cat;g.key=norm([g.nombre,g.marca,g.modelo,g.categoria,g.sub,g.cap].join(" "));
+    m.set(v.cod,g);
+  }
+  S.bySku=m;S.catalog=[...m.values()];S.sinStock=sinSt;
+}
+async function loadCatalog(force){
+  const cached=ls.get("ch_cat",null);
+  if(cached&&!S.catalog.length)rebuildCatalog(cached);
+  if(!CFG.API_URL||!S.perfil)return;
+  if(!force&&cached&&Date.now()-S.catUpdated<10*60000)return;
+  try{const j=await apiGet("catalogo");rebuildCatalog(j.rows);S.catUpdated=Date.now();
+    if(!ls.set("ch_cat",j.rows))toast("Catálogo muy grande para guardar sin señal");ls.set("ch_cat_t",S.catUpdated);
+    if(force)toast(`Catálogo actualizado: ${S.catalog.length} productos`);
+  }catch(e){if(e.message==="pin"){S.perfil.pin="";ls.set("ch_perfil",S.perfil);toast("PIN incorrecto");}else if(force)toast("No se pudo actualizar el catálogo");}
+  if(S.flow==="idle"||S.flow==="result")render();
+}
+
+/* ============ comparación por descripción ============ */
+// 1) Perfil del producto de la competencia (categoría, tipo, medida, marca, texto).
+// 2) Si el maestro conoce ese modelo, se toma su ficha para clasificar mejor.
+// 3) Se busca entre lo que SÍ vendemos: mismo modelo → equivalente → lo más parecido.
+function perfilCompetencia(cap){
+  const base={producto:cap.producto,marca:cap.marca,modelo:cap.modelo,categoria:cap.categoria};
+  let q=Matcher.profile(base),enMaestro=null,catSugerida="";
+  if(MAESTRO.listo){
+    const c=Matcher.clasificar(q,MAESTRO.lista,7);
+    if(c){catSugerida=c.cat;const top=c.top[0];
+      if(top&&top.det.codigo>=800)enMaestro=top.p;
+      if(enMaestro){q=Matcher.profile({...base,cap:enMaestro.cap,sub:enMaestro.sub,linea:enMaestro.linea,grupo:enMaestro.grupo,desc:enMaestro.desc,categoria:cap.categoria||""});}
+      if(!q.cat&&catSugerida){q=Matcher.profile({...base,categoria:catSugerida,cap:enMaestro?.cap,sub:enMaestro?.sub});}
+    }
+  }
+  return {q,enMaestro,catSugerida};
+}
+function compare(cap){
+  const {q,enMaestro}=perfilCompetencia(cap);
+  const ranked=Matcher.rank(q,S.catalog,80).map(x=>({...x,s:x.s+(x.p.min!=null?15:0)})).sort((a,b)=>b.s-a.s);
+  // el mejor nivel gana (mismo modelo > equivalente > parecido); a igual nivel, el que tiene precio Black
+  let match=null,matchTipo=null;
+  const NIV={mismo_modelo:3,equivalente:2,parecido:1};
+  const cands=ranked.slice(0,25).map(x=>({x,n:Matcher.nivel(q,x)})).filter(c=>c.n);
+  cands.sort((a,b)=>(NIV[b.n]-NIV[a.n])||((b.x.p.min!=null)-(a.x.p.min!=null))||(b.x.s-a.x.s));
+  if(cands[0]){match=cands[0].x.p;matchTipo=cands[0].n;}
+  const cat=q.cat||match?._prof.cat||"";
+  const pool=ranked.filter(x=>x.p!==match&&x.p.min!=null&&(!cat||x.p._prof.cat===cat)&&!x.det.conflictos);
+  const ref=cap.contado??match?.min;
+  const refCuota=toMonthly(cap.cuota,cap.frecuencia);
+  const alts=[];const used=new Set();
+  const nombres=new Set(match?[norm(match.nombre)]:[]);
+  const add=(g,tipo,razon)=>{if(!g||used.has(g.sku)||alts.length>=3)return;const nk=norm(g.nombre);if(g.sinPrecio&&nombres.has(nk))return;used.add(g.sku);nombres.add(nk);alts.push({sku:g.sku,tipo,razon});};
+  const UN={pulg:"pulgadas",lt:"litros",kg:"kg",btu:"BTU",quem:"quemadores",plazas:"plazas",cc:"cc",gb:"GB",ram:"GB de RAM"};
+  const medTxt=g=>{const u=g?._prof?.med;return u;};
+  const parecido=x=>{const d=x.det;if(d.dMedida==null)return "Parecido";if(d.dMedida<=0.08)return "Misma medida";
+    const pm=x.p._prof.med[d.unidad],v=pm?Math.round((pm.lo+pm.hi)/2):null,u=UN[d.unidad]||"";
+    const lado=d.medDir<0?"Más pequeño":"Más grande";return v&&d.unidad!=="lt"?`${lado} (${v} ${u})`:lado;};
+  if(ref!=null){
+    const cheaper=pool.filter(x=>x.p.min<ref-0.5)[0];
+    if(cheaper)add(cheaper.p,"mas_barato",`${parecido(cheaper)}, ${fmt(Math.round((ref-cheaper.p.min)*100)/100)} menos que ${cap.competidor}.`);
+  }
+  const credit=pool.filter(x=>x.p.minCuotaMes!=null&&(refCuota==null||x.p.minCuotaMes<refCuota-0.5)).sort((a,b)=>(b.s-a.s)-(a.p.minCuotaMes-b.p.minCuotaMes)*0.5)[0];
+  if(ref!=null&&!alts.some(a=>a.tipo==="mas_barato")){
+    const otro=ranked.filter(x=>x.p!==match&&x.p.min!=null&&x.p.min<ref-0.5&&(!cat||x.p._prof.cat===cat)&&x.det.conflictos)[0];
+    if(otro)add(otro.p,"mas_barato",`Otro tipo pero más económico: ${fmt(Math.round((ref-otro.p.min)*100)/100)} menos.`);
+  }
+  if(credit){const c=credit.p.cadenas.filter(x=>x.cuota!=null).sort((a,b)=>toMonthly(a.cuota,a.frecuencia)-toMonthly(b.cuota,b.frecuencia))[0];
+    add(credit.p,"mejor_credito",`Cuota de ${cuotaTxt(c)}${refCuota!=null?`, menos que la de ${cap.competidor}`:""}${c.entrada===0?", sin entrada":""}.`);}
+  if(ref!=null){
+    const promo=pool.filter(x=>x.p.cadenas.some(c=>c.promo)&&x.p.min<=ref*1.15)[0];
+    if(promo){const c=promo.p.cadenas.find(c=>c.promo);add(promo.p,"mejor_promo",`${c.promo}${promo.p.min>ref?` por solo ${fmt(Math.round((promo.p.min-ref)*100)/100)} más`:""}.`);}
+    const sup=pool.filter(x=>x.p.min>ref&&x.p.min<=ref*1.15)[0];
+    if(sup)add(sup.p,"superior",`${parecido(sup)} por ${fmt(Math.round((sup.p.min-ref)*100)/100)} más.`);
+  }
+  if(match&&match.min==null){const cp=pool.find(x=>x.p.min!=null);if(cp)add(cp.p,"similar",`${parecido(cp)}, con precio Black cargado.`);}
+  const sinP=ranked.filter(x=>x.p!==match&&x.p.sinPrecio&&(!cat||x.p._prof.cat===cat)&&!x.det.conflictos);
+  for(const x of sinP){if(alts.length>=3)break;add(x.p,"similar",`${parecido(x)}. Se vendió este mes: confirma precio en el sistema.`);}
+  let veredicto="sin_match",diff=null,mejorCadena=null;
+  if(match){
+    const b=match.best;mejorCadena=b?.cadena||null;
+    if(cap.contado!=null&&b?.contado!=null){diff=Math.round((b.contado-cap.contado)*100)/100;veredicto=diff<=-1?"nosotros":diff<1?"igual":"ellos";}
+    else if(refCuota!=null&&match.minCuotaMes!=null){veredicto=match.minCuotaMes<refCuota-0.5?"nosotros":match.minCuotaMes>refCuota+0.5?"ellos":"igual";}
+    else veredicto="sin_precio";
+  }
+  const cmp={sinPrecio:!!match?.sinPrecio,matchSku:match?.sku||null,matchTipo,veredicto,diff,mejorCadena,alternativas:alts,categoria:cat,
+    enMaestro:enMaestro&&!(match&&matchTipo==="mismo_modelo")?enMaestro.cod:null};
+  cmp.notaCredito=creditNote(cap,match);
+  cmp.argumento=speech(cap,match,cmp);
+  return cmp;
+}
+function creditNote(cap,match){
+  if(!match||cap.cuota==null)return "";
+  const c=match.cadenas.filter(x=>x.cuota!=null).sort((a,b)=>toMonthly(a.cuota,a.frecuencia)-toMonthly(b.cuota,b.frecuencia))[0];
+  if(!c)return "";
+  const tE=cap.ncuotas?cap.cuota*cap.ncuotas+(cap.entrada||0):null, tN=c.ncuotas?c.cuota*c.ncuotas+(c.entrada||0):null;
+  const mE=toMonthly(cap.cuota,cap.frecuencia),mN=toMonthly(c.cuota,c.frecuencia);
+  let s=`${cap.competidor}: ${cuotaTxt(cap)}. ${c.cadena}: ${cuotaTxt(c)}.`;
+  if(tE&&tN)s+=` Total a crédito: ${fmt(Math.round(tE))} vs ${fmt(Math.round(tN))} nuestro.`;
+  else if(mE&&mN&&cap.frecuencia!==c.frecuencia)s+=` Al mes: ${fmt(Math.round(mE))} vs ${fmt(Math.round(mN))}.`;
+  return s;
+}
+function speech(cap,match,cmp){
+  const alt=cmp.alternativas[0]?S.bySku.get(cmp.alternativas[0].sku):null;
+  const credit=g=>{const c=g?.cadenas.filter(x=>x.cuota!=null).sort((a,b)=>toMonthly(a.cuota,a.frecuencia)-toMonthly(b.cuota,b.frecuencia))[0];return c?` Y si prefiere a crédito, son ${cuotaTxt(c)}${c.entrada===0?" sin entrada":""}.`:"";};
+  const promo=g=>{const c=g?.cadenas.find(x=>x.promo);return c?` Además, ${c.promo.charAt(0).toLowerCase()+c.promo.slice(1)}.`:"";};
+  const b=match?.best;
+  const que=!match?"":cmp.matchTipo==="mismo_modelo"?"Ese mismo modelo":cmp.matchTipo==="equivalente"?`Un equivalente, ${match.nombre},`:`Algo muy parecido, ${match.nombre},`;
+  if(cmp.veredicto==="sin_precio"&&match)return `${que.replace(/,$/,"")} también lo tenemos en Cresa.${alt&&!alt.sinPrecio?(alt.best?.contado<(cap.contado??Infinity)?` Y si busca algo más económico, ${alt.nombre} está a ${fmt(alt.best?.contado)} en ${alt.best?.cadena}.`:` También tenemos ${alt.nombre} a ${fmt(alt.best?.contado)} en ${alt.best?.cadena}.`):""}`;
+  if(cmp.veredicto==="nosotros"&&b)return `${que} se lo dejamos en ${b.cadena} a ${fmt(b.contado)} de contado, ${fmt(Math.abs(cmp.diff))} menos que en ${cap.competidor}.${credit(match)}${promo(match)}`;
+  if(cmp.veredicto==="igual"&&b)return `Tenemos el mismo precio, ${fmt(b.contado)}, pero con nosotros sale mejor:${credit(match)||" tiene la garantía y el servicio de "+b.cadena+"."}${promo(match)}`;
+  if(cmp.veredicto==="ellos"&&alt){const a=alt.best;return `${que} lo tenemos a ${fmt(b?.contado)}, pero le recomiendo esta opción: ${alt.nombre}, a ${fmt(a?.contado)} en ${a?.cadena}. ${cmp.alternativas[0].razon}${credit(alt)}`;}
+  if(cmp.veredicto==="ellos"&&b)return `${que} lo tenemos a ${fmt(b.contado)} en ${b.cadena}.${credit(match)||" Y con nosotros lo puede llevar con crédito directo."}${promo(match)}`;
+  if(alt){const a=alt.best;return `Ese modelo no lo manejamos, pero le tengo esta opción: ${alt.nombre}, a ${fmt(a?.contado)} en ${a?.cadena}. ${cmp.alternativas[0].razon}${credit(alt)}`;}
+  return "";
+}
+
+/* ============ OCR en el teléfono ============ */
+let worker=null;
+async function getWorker(){
+  if(worker)return worker;
+  worker=await Tesseract.createWorker("spa",1,{logger:m=>{
+    if(m.status==="recognizing text"){S.ocrPct=Math.round(m.progress*100);S.ocrMsg="Leyendo el preciador";}
+    else if(/loading|initializ/.test(m.status||"")){S.ocrMsg="Preparando lector (solo la primera vez)";S.ocrPct=Math.round((m.progress||0)*100);}
+    const bar=$("#ocrBar i");if(bar)bar.style.width=S.ocrPct+"%";const t=$("#ocrMsg");if(t)t.textContent=S.ocrMsg;
+  }});
+  return worker;
+}
+async function prepImage(file){
+  const bmp=await createImageBitmap(file);
+  const fit=(max)=>{const k=Math.min(1,max/Math.max(bmp.width,bmp.height));return [Math.round(bmp.width*k),Math.round(bmp.height*k)];};
+  // foto para guardar (liviana)
+  const [w1,h1]=fit(1200);const c1=document.createElement("canvas");c1.width=w1;c1.height=h1;c1.getContext("2d").drawImage(bmp,0,0,w1,h1);
+  const save=c1.toDataURL("image/jpeg",.72);
+  // imagen para el OCR: más grande, gris y con contraste
+  const [w2,h2]=fit(2000);const c2=document.createElement("canvas");c2.width=w2;c2.height=h2;const x=c2.getContext("2d");x.drawImage(bmp,0,0,w2,h2);
+  const d=x.getImageData(0,0,w2,h2),p=d.data;
+  for(let i=0;i<p.length;i+=4){let g=.299*p[i]+.587*p[i+1]+.114*p[i+2];g=(g-128)*1.5+128;g=g<0?0:g>255?255:g;p[i]=p[i+1]=p[i+2]=g;}
+  x.putImageData(d,0,0);
+  return {save,ocr:c2};
+}
+async function onPhoto(file){
+  if(!file)return;
+  S.flow="reading";S.ocrPct=0;S.ocrMsg="Preparando la foto";S.photoUrl=URL.createObjectURL(file);render();
+  let img;
+  try{img=await prepImage(file);}catch{toast("No se pudo abrir la foto");S.flow="idle";render();return;}
+  S.photo=img.save;
+  let parsed={};
+  try{
+    const w=await getWorker();
+    const {data}=await w.recognize(img.ocr);
+    const lines=(data.lines||[]).map(l=>({text:l.text,h:(l.bbox?.y1||0)-(l.bbox?.y0||0)}));
+    parsed=CazaParser.parseTag(lines.length?lines:data.text||"",{brands:MAESTRO.marcas});
+  }catch(e){console.error(e);toast("No se pudo leer. Llena los datos a mano.");}
+  S.draft={...parsed,_leido:!!parsed.texto};
+  sugerirCategoria(S.draft);
+  S.flow="review";render();
+}
+
+/* ============ guardar (con cola sin señal) ============ */
+function sugerirCategoria(d){
+  if(!d||!MAESTRO.listo||(!d.producto&&!d.modelo))return;
+  const {q,enMaestro,catSugerida}=perfilCompetencia({producto:d.producto,marca:d.marca,modelo:d.modelo,categoria:""});
+  if(!d.categoria&&(q.cat||catSugerida)){d.categoria=q.cat||catSugerida;d._catSug=true;}
+  if(!d.marca&&enMaestro)d.marca=enMaestro.marca;
+}
+function queue(){return ls.get("ch_queue",[]);}
+async function flushQueue(){
+  if(!CFG.API_URL||!S.perfil?.pin||flushQueue.busy)return;
+  let q=queue();if(!q.length)return;
+  flushQueue.busy=true;
+  try{
+    while(q.length){
+      const it=q[0];
+      try{await apiPost({action:"guardar",captura:it.captura,foto:it.foto});}catch(e){if(e.message==="pin"){toast("PIN incorrecto");}break;}
+      q.shift();ls.set("ch_queue",q);
+    }
+  }finally{flushQueue.busy=false;}
+  renderNet();
+  if(!q.length)loadCaps();
+}
+function enqueue(item){
+  const q=queue();q.push(item);
+  if(!ls.set("ch_queue",q)){item.foto=null;q[q.length-1]=item;ls.set("ch_queue",q);}
+}
+async function onSave(){
+  const f=readForm();
+  if(!f.producto&&!f.modelo)return toast("Escribe al menos el producto o el modelo");
+  if(f.contado==null&&f.cuota==null)return toast("Falta el precio o la cuota");
+  const cap={...f,id:uid(),competidor:S.tienda,agencia:S.perfil?.agencia||"",autor:S.perfil?.nombre||"",creado:Date.now()};
+  const cmp=compare(cap);
+  const captura={...cap,antes:cap.normal,veredicto:cmp.veredicto,sku_cresa:cmp.matchSku||"",diferencia:cmp.diff,mejor_cadena:cmp.mejorCadena||"",
+    categoria:cap.categoria||cmp.categoria||"",tipo_match:cmp.matchTipo||"",en_maestro_sin_stock:cmp.enMaestro||"",
+    alternativas:cmp.alternativas.map(a=>({sku:a.sku,tipo:a.tipo,razon:a.razon})),texto_ocr:S.draft?.texto||""};
+  enqueue({captura,foto:S.photo});
+  S.caps.unshift({...captura,_local:true,_foto:S.photoUrl});
+  S.result={cap,cmp};S.flow="result";render();window.scrollTo({top:0,behavior:"smooth"});
+  flushQueue().then(()=>{if(queue().some(q=>q.captura.id===cap.id))toast("Guardado en el teléfono. Se envía cuando haya señal.");else toast("Guardado para todo el equipo");});
+}
+async function loadCaps(){
+  if(!CFG.API_URL||!S.perfil?.pin)return;
+  try{const j=await apiGet("capturas","&n=300");
+    const pend=queue().map(q=>({...q.captura,_local:true}));
+    S.caps=pend.concat(j.rows.map(r=>({...r,creado:r.fecha,normal:r.antes,ncuotas:r.num_cuotas})));
+    ls.set("ch_caps",j.rows.slice(0,100).map(r=>({...r,creado:r.fecha,normal:r.antes,ncuotas:r.num_cuotas})));
+    S.capsLoaded=true;
+    if(S.tab==="competencia"&&!document.activeElement?.matches("input")&&!$("#sheet").innerHTML)render();
+  }catch{}
+}
+
+/* ============ vistas ============ */
+function renderTabs(){
+  const t=[["capturar","Capturar",ICON.cam],["competencia","Competencia",ICON.list],["buscar","Nuestros precios",ICON.search]];
+  $("#tabs").innerHTML=t.map(([k,l,i])=>`<button class="tab" data-tab="${k}" aria-current="${S.tab===k}">${i}<span>${l}</span></button>`).join("");
+}
+function renderNet(){const q=queue().length;$("#net").className="net"+(S.online?"":" off");$("#who").textContent=(S.perfil?.nombre||"")+(q?` · ${q} por enviar`:"");}
+function render(){
+  renderTabs();renderNet();
+  if(!S.perfil||!S.perfil.pin){$("#app").innerHTML=viewOnboard();return;}
+  $("#app").innerHTML=({capturar:viewCapture,competencia:viewFeed,buscar:viewSearch}[S.tab]||viewCapture)();
+}
+function setupBanner(){
+  if(!CFG.API_URL)return `<div class="banner">Falta conectar la base de datos: pega la URL de Apps Script en <b>config.js</b>. Mientras tanto la app funciona solo en este teléfono.</div>`;
+  if(!S.catalog.length)return `<div class="banner">Cargando productos de Cresa…</div>`;
+  if(!S.conPrecio)return `<div class="banner">Todavía no hay precios de Black cargados. Mientras tanto se compara contra lo vendido este mes, sin precio.</div>`;
+  return "";
+}
+function viewOnboard(){
+  const p=S.perfil||{};
+  return `<section class="card">
+    <div><div class="lbl">Comparador Hábil de Información Sobre Movidas Enemigas</div><h2 style="margin-top:4px">¿Qué chisme trajiste hoy?</h2></div>
+    <p class="muted small" style="margin:0">Toma foto a los preciadores de la competencia y compáralos al instante con lo que tenemos en Crecos, Orve y Japón.</p>
+    <div class="field"><label for="o-nombre">Tu nombre</label><input id="o-nombre" value="${esc(p.nombre)}" autocomplete="name"></div>
+    <div class="field"><label for="o-agencia">Tu agencia o equipo</label>${CFG.AGENCIAS.length?`<select id="o-agencia"><option value="">—</option>${CFG.AGENCIAS.map(a=>`<option ${a===p.agencia?"selected":""}>${esc(a)}</option>`).join("")}</select>`:`<input id="o-agencia" value="${esc(p.agencia)}" placeholder="Crecos Mall del Sur, Mercadeo…">`}</div>
+    <div class="field"><label for="o-pin">PIN del equipo</label><input id="o-pin" type="password" inputmode="text" value="" autocomplete="off"></div>
+    <button class="btn block" id="o-ok">Entrar</button>
+  </section>`;
+}
+function viewCapture(){
+  let h=setupBanner();
+  if(S.flow==="result"&&S.result)return h+resultView(S.result.cap,S.result.cmp,true);
+  h+=`<section class="card"><div class="lbl">¿En qué competidor estás?</div>
+    <div class="chips" role="group" aria-label="Competidor">${CFG.COMPETIDORES.map(c=>`<button class="chip" data-tienda="${esc(c)}" aria-pressed="${S.tienda===c}">${esc(c)}</button>`).join("")}</div></section>`;
+  if(S.flow==="idle"){
+    h+=`<section class="card"><div class="shoot"><div class="big">${ICON.cam}</div><strong>Foto al preciador</strong>
+      <span class="muted small">Acércate para que el precio llene la foto. Una etiqueta por foto, sin reflejo.</span>
+      <input id="cam" type="file" accept="image/*" capture="environment" aria-label="Tomar foto del preciador"></div>
+      <button class="btn ghost block" id="manual">Escribir a mano, sin foto</button></section>`;
+    const mine=S.caps.filter(c=>c.autor&&c.autor===S.perfil?.nombre).slice(0,3);
+    if(mine.length)h+=`<section class="card"><div class="lbl">Tus últimas capturas</div><div class="feed">${mine.map(itemHTML).join("")}</div></section>`;
+  }
+  if(S.flow==="reading")h+=`<section class="card"><div class="scanning"><img class="preview" src="${S.photoUrl}" alt="Foto del preciador"></div>
+    <div class="row"><span class="spin"></span><strong id="ocrMsg">${esc(S.ocrMsg)}</strong></div><div class="bar" id="ocrBar"><i style="width:${S.ocrPct}%"></i></div></section>`;
+  if(S.flow==="review")h+=reviewForm();
+  return h;
+}
+function reviewForm(){
+  const d=S.draft||{};
+  const opt=(arr,v)=>`<option value="">—</option>`+arr.map(a=>`<option ${a===v?"selected":""}>${esc(a)}</option>`).join("");
+  const w=k=>d._leido&&(d[k]==null||d[k]==="")?" warn":"";
+  return `<section class="card">
+    ${S.photoUrl?`<img class="preview" src="${S.photoUrl}" alt="Foto del preciador">`:""}
+    <div><h2>Revisa los datos</h2><p class="muted small" style="margin:4px 0 0">${d._leido?"El lector puede equivocarse: confirma precio y cuota con la foto.":"Llena lo que ves en el preciador."}</p></div>
+    ${d._leido&&!d.legible?`<div class="banner">No se leyó casi nada. Toma otra foto más de cerca o llena a mano.</div>`:""}
+    <div class="grid2">
+      <div class="field full${w("producto")}"><label for="f-producto">Producto</label><input id="f-producto" value="${esc(d.producto)}" placeholder="Refrigeradora 14 pies No Frost"></div>
+      <div class="field${w("marca")}"><label for="f-marca">Marca</label><input id="f-marca" value="${esc(d.marca)}"></div>
+      <div class="field${w("modelo")}"><label for="f-modelo">Modelo</label><input id="f-modelo" value="${esc(d.modelo)}" autocapitalize="characters"></div>
+      <div class="field full"><label for="f-categoria">Categoría${d._catSug?" (sugerida)":""}</label><select id="f-categoria">${opt(CATEGORIAS,d.categoria)}</select></div>
+      <div class="field${w("contado")}"><label for="f-contado">Precio contado $</label><input id="f-contado" inputmode="decimal" value="${d.contado??""}"></div>
+      <div class="field"><label for="f-normal">Precio antes $</label><input id="f-normal" inputmode="decimal" value="${d.normal??""}"></div>
+      <div class="field"><label for="f-cuota">Cuota $</label><input id="f-cuota" inputmode="decimal" value="${d.cuota??""}"></div>
+      <div class="field"><label for="f-ncuotas">N.º de cuotas</label><input id="f-ncuotas" inputmode="numeric" value="${d.ncuotas??""}"></div>
+      <div class="field"><label for="f-frecuencia">Frecuencia</label><select id="f-frecuencia">${opt(FRECUENCIAS,d.frecuencia)}</select></div>
+      <div class="field"><label for="f-entrada">Entrada $</label><input id="f-entrada" inputmode="decimal" value="${d.entrada??""}"></div>
+      <div class="field full"><label for="f-plan">Plan de crédito</label><input id="f-plan" value="${esc(d.plan)}" placeholder="Crédito directo, sin entrada, tarjeta…"></div>
+      <div class="field full"><label for="f-regalo">Regalo o promo extra</label><input id="f-regalo" value="${esc(d.regalo)}" placeholder="Lleva gratis…, 20% con tarjeta…"></div>
+    </div>
+    ${d.texto?`<details><summary>Ver texto leído</summary><pre>${esc(d.texto)}</pre></details>`:""}
+    <button class="btn block" id="save">Comparar y guardar</button>
+    <button class="btn ghost block" id="cancel">Descartar</button>
+  </section>`;
+}
+function readForm(){
+  const g=id=>$("#"+id)?.value.trim()||"";
+  return {producto:g("f-producto"),marca:g("f-marca"),modelo:g("f-modelo").toUpperCase(),categoria:g("f-categoria"),
+    contado:money(g("f-contado")),normal:money(g("f-normal")),cuota:money(g("f-cuota")),ncuotas:money(g("f-ncuotas")),
+    frecuencia:g("f-frecuencia"),entrada:money(g("f-entrada")),plan:g("f-plan"),regalo:g("f-regalo")};
+}
+const VER={nosotros:["v-good","Cresa más barato"],igual:["v-warn","Mismo precio"],ellos:["v-bad","Competencia más barata"],sin_match:["v-none","No tenemos nada parecido"],sin_precio:["v-warn","Lo tenemos, falta precio"]};
+const ALT={similar:["","Similar"],mas_barato:["good","Más barato"],mejor_credito:["brand","Mejor crédito"],mejor_promo:["warn","Mejor promo"],superior:["","Superior"]};
+function chainRows(g,cap){
+  return g.cadenas.map(c=>{
+    let d="";const cc=money(cap.contado);
+    if(c.contado!=null&&cc!=null){const x=c.contado-cc;d=Math.abs(x)<1?`<span class="diff">igual</span>`:`<span class="diff ${x<0?"good":"bad"}">${x<0?"−":"+"}${fmt(Math.abs(x))}</span>`;}
+    const det=[cuotaTxt(c),c.entrada!=null?`entrada ${fmt(c.entrada)}`:"",c.plan,c.promo].filter(Boolean).join(" · ");
+    return `<div class="chain"><span class="cn">${esc(c.cadena)}</span><span class="cd">${esc(det)||"&nbsp;"}</span><span class="cp num">${fmt(c.contado)}${d}</span></div>`;
+  }).join("");
+}
+function resultView(cap,cmp,isNew){
+  const match=cmp?.matchSku?S.bySku.get(String(cmp.matchSku)):null;
+  const [vc,vt]=VER[cmp?.veredicto]||VER.sin_match;
+  let vs="";
+  if(cmp?.veredicto==="nosotros")vs=cmp.diff!=null?`${fmt(Math.abs(cmp.diff))} menos en ${esc(cmp.mejorCadena)}`:"Nuestra cuota es más baja";
+  else if(cmp?.veredicto==="ellos")vs=`${esc(cap.competidor)} está ${cmp.diff!=null?fmt(cmp.diff)+" ":""}más abajo. Mira las alternativas.`;
+  else if(cmp?.veredicto==="igual")vs="Gana con el crédito o la promo.";
+  else if(cmp?.veredicto==="sin_precio")vs=match?.sinPrecio?"Lo tenemos (se vendió este mes), pero no está en la lista de precios Black. Confirma el precio en el sistema.":"Falta el precio para comparar.";
+  else if(cmp?.veredicto==="sin_match")vs=S.catalog.length?"No vendemos nada de esa categoría en Black.":"El catálogo de Cresa aún no está cargado.";
+  if(match&&cmp.matchTipo==="parecido"&&vs)vs+=" (comparado con lo más parecido)";
+  const best=match?.best;
+  let h=`<section class="card">
+    <div class="row" style="justify-content:space-between"><span class="pill brand">${esc(cap.competidor)}</span><span class="muted small">${esc(cap.agencia||"")}${cap.creado?" · "+ago(cap.creado):""}</span></div>
+    <h2>${esc(cap.producto||"Producto sin nombre")}</h2>
+    ${cap.marca||cap.modelo?`<div class="muted small">${esc([cap.marca,cap.modelo].filter(Boolean).join(" · "))}</div>`:""}
+    <div class="duel">
+      <div class="tag"><span class="w">${esc(cap.competidor)}</span><span class="p">${priceHTML(money(cap.contado))}</span><span class="c">${esc(cuotaTxt(cap))||"&nbsp;"}</span></div>
+      <div class="tag ours"><span class="w">Cresa${best?" · "+esc(best.cadena):""}</span><span class="p">${best?priceHTML(best.contado):"—"}</span><span class="c">${esc(cuotaTxt(best))||"&nbsp;"}</span></div>
+    </div>
+    ${money(cap.normal)||money(cap.entrada)!=null||cap.plan||cap.regalo?`<div class="small muted">${esc([money(cap.normal)?`Antes ${fmt(money(cap.normal))}`:"",money(cap.entrada)!=null?`Entrada ${fmt(money(cap.entrada))}`:"",cap.plan,cap.regalo].filter(Boolean).join(" · "))}</div>`:""}
+    <div class="verdict ${vc}"><div class="v-t">${vt}</div>${vs?`<div class="v-s">${vs}</div>`:""}</div>
+    ${cmp?.enMaestro?`<div class="small muted">Ese modelo existe en Cresa (código <b>${esc(cmp.enMaestro)}</b>) pero no está en la lista de Black o no tiene stock.</div>`:""}
+  </section>`;
+  if(match)h+=`<section class="card"><div class="lbl">${({mismo_modelo:"Mismo modelo en Cresa",equivalente:"Equivalente en Cresa",parecido:"Lo más parecido que tenemos"})[cmp.matchTipo]||"En Cresa"}</div>
+    <div><strong>${esc(match.nombre)}</strong><div class="muted small">${esc([match.marca,"Código "+match.sku].filter(Boolean).join(" · "))}</div></div>
+    ${match.cadenas.length?`<div class="chains">${chainRows(match,cap)}</div>`:`<div class="banner">Sin precio Black cargado. Se vendió este mes.</div>`}
+    ${cmp.notaCredito?`<div class="small"><strong>Crédito:</strong> ${esc(cmp.notaCredito)}</div>`:""}</section>`;
+  const alts=(cmp?.alternativas||[]).map(a=>({a,g:S.bySku.get(String(a.sku))})).filter(x=>x.g);
+  if(alts.length)h+=`<section class="card"><div class="lbl">Alternativas para no perder la venta</div>`+alts.map(({a,g})=>{
+    const [pc,pt]=ALT[a.tipo]||["",a.tipo];const bc=g.best;
+    return `<div class="alt"><div class="alt-h"><div class="alt-n">${esc(g.nombre)}<div class="muted small" style="font-weight:500">${esc([g.marca,g.modelo,bc?.cadena].filter(Boolean).join(" · "))}</div></div><div class="alt-p num">${bc?fmt(bc.contado):'<span class="pill">sin precio</span>'}</div></div>
+      <div class="row"><span class="pill ${pc}">${esc(pt)}</span>${cuotaTxt(bc)?`<span class="small muted">${esc(cuotaTxt(bc))}</span>`:""}</div>
+      ${a.razon?`<div class="small">${esc(a.razon)}</div>`:""}</div>`;}).join("")+`</section>`;
+  const arg=cmp?.argumento||(isNew?"":speech(cap,match,{...cmp,alternativas:cmp?.alternativas||[]}));
+  if(arg)h+=`<section class="card"><div class="lbl">Qué decirle al cliente</div><div class="speech">${esc(arg)}</div>
+    <button class="btn ghost small" data-copy="${esc(arg)}">Copiar para WhatsApp</button></section>`;
+  if(isNew)h+=`<button class="btn block" id="again">Capturar otro precio</button>`;
+  return h;
+}
+function capFromRow(c){return {...c,competidor:c.competidor,contado:money(c.contado),normal:money(c.normal??c.antes),cuota:money(c.cuota),ncuotas:money(c.ncuotas??c.num_cuotas),entrada:money(c.entrada)};}
+function cmpFromRow(c){return {enMaestro:c.en_maestro_sin_stock||null,matchSku:c.sku_cresa||null,matchTipo:c.tipo_match||"mismo_modelo",veredicto:c.veredicto||"sin_match",diff:money(c.diferencia),mejorCadena:c.mejor_cadena,alternativas:Array.isArray(c.alternativas)?c.alternativas:[]};}
+function thumbSrc(c){return c._foto||(c.foto_id?`https://drive.google.com/thumbnail?id=${encodeURIComponent(c.foto_id)}&sz=w240`:"");}
+function itemHTML(c){
+  const [vc,vt]=VER[c.veredicto]||["v-none",""];const pc={"v-good":"good","v-bad":"bad","v-warn":"warn","v-none":""}[vc];const src=thumbSrc(c);
+  return `<button class="item" data-cap="${esc(c.id)}">
+    ${src?`<img class="thumb" src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`:`<div class="thumb"></div>`}
+    <div style="min-width:0"><div class="t">${esc(c.producto||"Sin nombre")}</div>
+      <div class="m">${esc(c.competidor)}${c.agencia?" · "+esc(c.agencia):""} · ${c._local?"por enviar":ago(c.creado)}</div>
+      ${vt?`<span class="pill ${pc}" style="margin-top:4px">${vt}</span>`:""}</div>
+    <div class="pr num">${fmt(money(c.contado))}${money(c.cuota)?`<div class="m" style="font-family:var(--f-body);font-weight:500">${esc(cuotaTxt(capFromRow(c)))}</div>`:""}</div></button>`;
+}
+function viewFeed(){
+  let h=setupBanner();const q=norm(S.feedQ);
+  const list=S.caps.filter(c=>(S.feedFilter==="Todas"||c.competidor===S.feedFilter)&&(!q||norm([c.producto,c.marca,c.modelo,c.agencia,c.categoria,c.autor].join(" ")).includes(q)));
+  const v=k=>list.filter(c=>c.veredicto===k).length;
+  h+=`<div class="stats"><div class="stat"><b class="num">${list.length}</b><span>capturas</span></div><div class="stat good"><b class="num">${v("nosotros")}</b><span>Cresa gana</span></div><div class="stat bad"><b class="num">${v("ellos")}</b><span>Competencia gana</span></div></div>
+  <div class="field"><label for="feedQ" class="lbl">Buscar en capturas</label><input id="feedQ" type="search" value="${esc(S.feedQ)}" placeholder="Producto, marca, agencia…"></div>
+  <div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:8px"><div class="chips" style="min-width:0">${["Todas",...CFG.COMPETIDORES.filter(t=>S.caps.some(c=>c.competidor===t))].map(t=>`<button class="chip" data-ff="${esc(t)}" aria-pressed="${S.feedFilter===t}">${esc(t)}</button>`).join("")}</div><button class="btn ghost small" id="reload" aria-label="Actualizar">↻</button></div>`;
+  if(!list.length)h+=`<div class="empty"><strong>${S.capsLoaded||!CFG.API_URL?"Todavía no hay capturas":"Cargando…"}</strong>Cada foto que tome el equipo en la competencia aparece aquí para todos.</div>`;
+  else h+=`<div class="feed">${list.map(itemHTML).join("")}</div>`;
+  return h;
+}
+function openCap(id){
+  const c=S.caps.find(x=>String(x.id)===String(id));if(!c)return;
+  const cap=capFromRow(c);const cmp=cmpFromRow(c);
+  const big=c._foto||(c.foto_id?`https://drive.google.com/thumbnail?id=${encodeURIComponent(c.foto_id)}&sz=w1000`:"");
+  $("#sheet").innerHTML=`<div class="sheet-bg" data-close="1"><div class="sheet" role="dialog" aria-label="Detalle de captura">
+    ${big?`<img class="preview" src="${esc(big)}" alt="Foto del preciador" referrerpolicy="no-referrer">`:""}
+    ${resultView(cap,cmp,false)}
+    <div class="row">${c.autor?`<span class="muted small">Capturado por ${esc(c.autor)}</span>`:""}<button class="btn small" data-close="1" style="margin-left:auto">Cerrar</button></div>
+  </div></div>`;
+}
+function viewSearch(){
+  let h=`<div class="field"><label for="sq" class="lbl">Busca un producto de Cresa</label><input id="sq" type="search" value="${esc(S.searchQ)}" placeholder="Modelo, marca o producto"></div>`;
+  if(!S.catalog.length)return h+`<div class="empty"><strong>Catálogo vacío</strong>Negocios debe cargar los precios de Black en el Google Sheet.</div>`;
+  const q=norm(S.searchQ).split(/[^a-z0-9]+/).filter(t=>t.length>1);
+  const res=(q.length?S.catalog.filter(g=>q.every(t=>g.key.includes(t))):S.catalog).sort((a,b)=>(b.min!=null)-(a.min!=null)).slice(0,40);
+  h+=`<div class="row" style="justify-content:space-between"><span class="muted small">${q.length?res.length+" resultados":S.conPrecio+" con precio Black · "+(S.catalog.length-S.conPrecio)+" vendidos sin precio"}${S.catUpdated?" · actualizado "+ago(S.catUpdated):""}</span><button class="btn ghost small" id="catReload">Actualizar precios</button></div>`;
+  h+=res.map(g=>`<section class="card"><div><strong>${esc(g.nombre)}</strong><div class="muted small">${esc([g.marca,g.categoria,"Código "+g.sku].filter(Boolean).join(" · "))}</div></div>${g.cadenas.length?`<div class="chains">${chainRows(g,{})}</div>`:`<span class="pill">Vendido este mes · sin precio Black</span>`}</section>`).join("");
+  return h;
+}
+
+/* ============ eventos ============ */
+document.addEventListener("click",async e=>{
+  const t=e.target.closest("button,[data-close]");if(!t)return;const d=t.dataset;
+  if(d.tab){S.tab=d.tab;render();window.scrollTo(0,0);if(d.tab==="competencia")loadCaps();return;}
+  if(d.tienda){S.tienda=d.tienda;ls.set("ch_tienda",S.tienda);document.querySelectorAll("[data-tienda]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tienda===S.tienda));return;}
+  if(d.ff){S.feedFilter=d.ff;render();return;}
+  if(d.cap){openCap(d.cap);return;}
+  if(d.copy!=null){copy(d.copy);return;}
+  if(d.close&&(e.target===t||t.tagName==="BUTTON")){$("#sheet").innerHTML="";return;}
+  switch(t.id){
+    case "o-ok":{
+      const nombre=$("#o-nombre").value.trim(),agencia=$("#o-agencia").value.trim(),pin=$("#o-pin").value.trim();
+      if(!nombre)return toast("Escribe tu nombre");
+      S.perfil={nombre,agencia,pin};
+      if(CFG.API_URL){t.disabled=true;try{await apiGet("ping");}catch(err){t.disabled=false;return toast(err.message==="pin"?"PIN incorrecto":"Sin conexión. Intenta de nuevo con señal.");}}
+      ls.set("ch_perfil",S.perfil);render();loadCatalog(true);loadCaps();break;}
+    case "manual":S.photo=null;S.photoUrl="";S.draft={};S.flow="review";render();break;
+    case "save":onSave();break;
+    case "cancel":S.flow="idle";S.photo=null;S.photoUrl="";render();break;
+    case "again":S.flow="idle";S.result=null;S.photo=null;S.photoUrl="";render();window.scrollTo(0,0);break;
+    case "reload":loadCaps().then(()=>toast("Actualizado"));break;
+    case "catReload":loadCatalog(true);break;
+  }
+});
+document.addEventListener("change",e=>{if(e.target.id==="cam")onPhoto(e.target.files[0]);});
+document.addEventListener("input",e=>{
+  const id=e.target.id;if(id!=="feedQ"&&id!=="sq")return;
+  if(id==="feedQ")S.feedQ=e.target.value;else S.searchQ=e.target.value;
+  const pos=e.target.selectionStart;render();const i=$("#"+id);i.focus();i.setSelectionRange(pos,pos);
+});
+addEventListener("online",()=>{S.online=true;renderNet();flushQueue();});
+addEventListener("offline",()=>{S.online=false;renderNet();});
+setInterval(()=>{if(document.visibilityState==="visible"){flushQueue();if(S.tab==="competencia")loadCaps();}},60000);
+
+/* ============ arranque ============ */
+loadMaestro();
+loadCatalog(false).then(()=>{render();flushQueue();loadCaps();});
+render();
+</script>
+</body>
+</html>
