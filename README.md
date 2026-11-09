@@ -118,7 +118,7 @@ Los teléfonos bajan los precios al abrir, se actualizan cada 10 minutos o con *
 
 ### Paso 8 · Probar antes de repartir
 
-1. Abre el link en tu teléfono → nombre, agencia, PIN.
+1. Abre el link en tu teléfono → nombre y PIN. Acepta el permiso de ubicación (sirve para saber la ciudad).
 2. Toma foto a 3 o 4 preciadores (o a una foto en pantalla).
 3. Revisa que aparezcan en la pestaña **Capturas** del Sheet.
 4. **Compartir:** manda el link por WhatsApp o haz un QR. En el teléfono, *Agregar a pantalla de inicio* para que quede como app.
@@ -162,7 +162,9 @@ Ese precio **queda guardado como precio Cresa** de esa cadena (marcado "foto") y
 
 **Nuestros precios**: escribe un código (ej. `SMCAS122IGL`) o un producto y toca el resultado para ver cómo está frente a la competencia. También encuentra códigos que existen en Cresa pero no están en Black.
 
-**Competencia**: todo lo capturado por el equipo, de la competencia y de nuestras cadenas, con filtros y buscador.
+**Competencia**: todo lo capturado por el equipo, de la competencia y de nuestras cadenas, con filtros por cadena y por ciudad.
+
+**Cadena y ciudad**: la cadena la lee la IA del cartel (y se puede cambiar con los botones); la ciudad sale de la ubicación del teléfono comparada con una lista de ciudades del Ecuador dentro de la app (sin servicios externos). Si no hay permiso de ubicación, se elige de la lista. En el Sheet la ciudad queda en la tercera columna de **Capturas**; puedes cambiar ese encabezado de `agencia` a `ciudad`.
 
 Sin señal: se guarda en el teléfono y se envía solo cuando vuelve la conexión.
 

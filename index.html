@@ -154,18 +154,18 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
   <span class="net" id="net" title="Conexión"></span>
 </div></header>
 <main id="app"></main>
-<p class="muted" style="text-align:center;font-size:11px;margin:0 0 calc(90px + env(safe-area-inset-bottom,0px))">LUPA v2026.11.09-7</p>
+<p class="muted" style="text-align:center;font-size:11px;margin:0 0 calc(90px + env(safe-area-inset-bottom,0px))">LUPA v2026.11.09-8</p>
 <nav class="tabs"><div class="tabs-in" id="tabs"></div></nav>
 <div id="sheet"></div>
 <div id="toastBox"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<script src="parser.js?v=2026.11.09-7"></script>
-<script src="matcher.js?v=2026.11.09-7"></script>
-<script src="config.js?v=2026.11.09-7"></script>
+<script src="parser.js?v=2026.11.09-8"></script>
+<script src="matcher.js?v=2026.11.09-8"></script>
+<script src="config.js?v=2026.11.09-8"></script>
 <script>
 /* ============ configuración (config.js) ============ */
-const VERSION="2026.11.09-7";
+const VERSION="2026.11.09-8";
 const CFG=Object.assign({
   API_URL:"https://script.google.com/macros/s/AKfycbxVPV8O8qQpirRpsYI6228qiYEihwPitAvIew0lJgE_FLygEm8mFU9wIEIA6yY4jVM0Ow/exec",
   COMPETIDORES:["Artefacta","Marcimex","Comandato","Almacenes España","Jaher","Al Precio","Tía","Pycca","La Ganga","Otro"],
@@ -180,12 +180,40 @@ const ICON={
  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>'
 };
 
+/* ============ ciudades (sin servicios externos) ============ */
+const CIUDADES=[["Guayaquil",-2.190,-79.890],["Guayaquil",-2.135,-79.905],["Guayaquil",-2.245,-79.900],["Guayaquil",-2.175,-79.960],["Guayaquil",-2.090,-79.920],["Samborondón",-2.128,-79.862],["Quito",-0.180,-78.467],["Cuenca",-2.900,-79.005],["Santo Domingo",-0.254,-79.172],["Machala",-3.258,-79.955],
+ ["Durán",-2.172,-79.830],["Manta",-0.967,-80.709],["Portoviejo",-1.054,-80.454],["Loja",-3.993,-79.205],["Ambato",-1.241,-78.619],["Esmeraldas",0.968,-79.652],
+ ["Quevedo",-1.022,-79.463],["Riobamba",-1.664,-78.654],["Milagro",-2.134,-79.594],["Ibarra",0.350,-78.122],["Babahoyo",-1.801,-79.534],["La Libertad",-2.233,-80.910],
+ ["Salinas",-2.214,-80.958],["Santa Elena",-2.227,-80.858],["Latacunga",-0.934,-78.615],["Daule",-1.861,-79.977],["Chone",-0.698,-80.094],["El Carmen",-0.267,-79.456],
+ ["Pasaje",-3.327,-79.807],["Huaquillas",-3.476,-80.231],["Santa Rosa",-3.449,-79.960],["Tulcán",0.812,-77.717],["Nueva Loja",0.085,-76.894],["Puyo",-1.483,-78.003],
+ ["Tena",-0.993,-77.813],["Azogues",-2.739,-78.846],["Otavalo",0.234,-78.262],["Sangolquí",-0.313,-78.447],["Cayambe",0.041,-78.146],["La Troncal",-2.423,-79.339],
+ ["Naranjal",-2.674,-79.617],["Playas",-2.632,-80.389],["El Empalme",-1.044,-79.636],["Balzar",-1.364,-79.906],["Vinces",-1.555,-79.752],["Ventanas",-1.444,-79.459],
+ ["Jipijapa",-1.348,-80.578],["Montecristi",-1.046,-80.659],["Bahía de Caráquez",-0.598,-80.425],["Macas",-2.309,-78.118],["Zamora",-4.069,-78.957],["Yaguachi",-2.120,-79.693],
+ ["El Triunfo",-2.333,-79.389],["Puerto López",-1.559,-80.811],["Atacames",0.866,-79.849],["Quinindé",0.328,-79.471],["Buena Fe",-0.892,-79.490],["La Concordia",-0.006,-79.393]];
+const CIUDADES_ORDEN=[...new Set(CIUDADES.map(c=>c[0]))].sort((a,b)=>a.localeCompare(b,"es"));
+function distKm(a,b,c,d){const R=6371,t=x=>x*Math.PI/180;const h=Math.sin(t(c-a)/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(t(d-b)/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+function ciudadCercana(lat,lon){let best=null,bd=1e9;for(const [n,la,lo] of CIUDADES){const d=distKm(lat,lon,la,lo);if(d<bd){bd=d;best=n;}}return bd<=45?best:"";}
+function ubicar(){
+  return new Promise(res=>{
+    if(!navigator.geolocation)return res(null);
+    navigator.geolocation.getCurrentPosition(p=>{const c=ciudadCercana(p.coords.latitude,p.coords.longitude);res(c||null);},()=>res(null),{enableHighAccuracy:false,timeout:9000,maximumAge:600000});
+  });
+}
+async function actualizarCiudad(forzar){
+  if(S.ciudadManual&&!forzar)return;
+  const c=await ubicar();
+  if(c){S.ciudad=c;S.ciudadManual=false;ls.set("ch_ciudad",{c,m:false});const el=$("#ciudadTxt");if(el)el.textContent=c;}
+  else if(!S.ciudad){S.ciudadPend=true;if(S.tab==="capturar"&&S.flow==="idle")render();}
+}
+
 /* ============ estado ============ */
 const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch{return false}}};
 const S={tab:"capturar",flow:"idle",photo:null,photoUrl:"",draft:null,result:null,ocrPct:0,ocrMsg:"",
   catalog:[],bySku:new Map(),caps:ls.get("ch_caps",[]),capsLoaded:false,catUpdated:ls.get("ch_cat_t",0),
   feedFilter:"Todas",feedQ:"",searchQ:"",
   perfil:ls.get("ch_perfil",null),tienda:ls.get("ch_tienda","Artefacta"),online:navigator.onLine};
+{const c=ls.get("ch_ciudad",null);S.ciudad=c?.c||"";S.ciudadManual=!!c?.m;}
+
 
 /* ============ utilidades ============ */
 const $=s=>document.querySelector(s);
@@ -227,7 +255,7 @@ const MAESTRO={lista:[],porCodigo:new Map(),marcas:[],listo:false,vendidos:[]};
 function parseTSV(txt){const out=[];for(const ln of txt.split("\n").slice(1)){if(!ln)continue;const [cod,desc,marca,cap,sub,linea,grupo]=ln.split("\t");if(cod)out.push({cod,modelo:cod,desc:desc||"",marca:marca||"",cap:cap||"",sub:sub||"",linea:linea||"",grupo:grupo||""});}return out;}
 async function loadMaestro(){
   try{
-    const [rm,rv]=await Promise.all([fetch("maestro.tsv?v=2026.11.09-7"),fetch("vendidos.tsv?v=2026.11.09-7").catch(()=>null)]);
+    const [rm,rv]=await Promise.all([fetch("maestro.tsv?v=2026.11.09-8"),fetch("vendidos.tsv?v=2026.11.09-8").catch(()=>null)]);
     if(!rm.ok)throw 0;
     const marcas=new Set();
     const mete=row=>{const k=compact(row.cod);if(MAESTRO.porCodigo.has(k))return MAESTRO.porCodigo.get(k);MAESTRO.lista.push(row);MAESTRO.porCodigo.set(k,row);if(row.marca&&row.marca.length>2)marcas.add(row.marca);return row;};
@@ -405,7 +433,8 @@ function vsCompetencia(g,ours){
     let n=Matcher.nivel(q,hit);if(!n)continue;
     if(n==="parecido"&&(r.det.conflictos||!q.cat||cp.cat!==q.cat||(r.det.dMedida!=null&&r.det.dMedida>0.2)||r.s<80))continue;
     const prev=porComp.get(c.competidor);
-    if(!prev||NIV[n]>NIV[prev.nivel]||(NIV[n]===NIV[prev.nivel]&&(c.creado||0)>(prev.c.creado||0)))porComp.set(c.competidor,{c,nivel:n,det:r.det});
+    const misma=x=>(x.ciudad||x.agencia)&&ours?.ciudad&&(x.ciudad||x.agencia)===ours.ciudad?1:0;
+    if(!prev||NIV[n]>NIV[prev.nivel]||(NIV[n]===NIV[prev.nivel]&&(misma(c)>misma(prev.c)||(misma(c)===misma(prev.c)&&(c.creado||0)>(prev.c.creado||0)))))porComp.set(c.competidor,{c,nivel:n,det:r.det});
   }
   const oc=money(ours?.contado),om=toMonthly(money(ours?.cuota),ours?.frecuencia);
   const rows=[...porComp.values()].map(x=>{const c=x.c;
@@ -542,6 +571,7 @@ function draftDesdeIA(d){
 }
 async function onPhoto(file){
   if(!file)return;
+  actualizarCiudad();
   S.flow="reading";S.ocrPct=0;S.ocrMsg="Preparando la foto";S.photoUrl=URL.createObjectURL(file);S.iaError="";S.iaDetalle="";render();
   let img;
   try{img=await prepImage(file);}catch{toast("No se pudo abrir la foto");S.flow="idle";render();return;}
@@ -598,7 +628,9 @@ async function onSave(){
   const f=readForm();
   if(!f.producto&&!f.modelo)return toast("Escribe al menos el producto o el modelo");
   if(f.contado==null&&f.cuota==null)return toast("Falta el precio o la cuota");
-  const cap={...f,id:uid(),competidor:S.tienda,agencia:S.perfil?.agencia||"",autor:S.perfil?.nombre||"",creado:Date.now()};
+  const ciudad=$("#f-ciudad")?.value||S.ciudad||"";
+  if(ciudad&&ciudad!==S.ciudad){S.ciudad=ciudad;S.ciudadManual=true;ls.set("ch_ciudad",{c:ciudad,m:true});}
+  const cap={...f,id:uid(),competidor:S.tienda,ciudad,agencia:ciudad,autor:S.perfil?.nombre||"",creado:Date.now()};
   if(esCresa(S.tienda))return onSaveOurs(cap);
   cap.origen="competencia";
   const cmp=compare(cap);
@@ -613,7 +645,7 @@ async function onSave(){
 function onSaveOurs(cap){
   const {g,como}=identificarNuestro(cap);
   cap.origen="cresa";
-  const ours={cadena:cap.competidor,contado:cap.contado,normal:cap.normal,cuota:cap.cuota,ncuotas:cap.ncuotas,frecuencia:cap.frecuencia,entrada:cap.entrada,plan:cap.plan,promo:cap.regalo};
+  const ours={ciudad:cap.ciudad,cadena:cap.competidor,contado:cap.contado,normal:cap.normal,cuota:cap.cuota,ncuotas:cap.ncuotas,frecuencia:cap.frecuencia,entrada:cap.entrada,plan:cap.plan,promo:cap.regalo};
   const r=vsCompetencia(g,ours);
   const captura={...cap,antes:cap.normal,categoria:cap.categoria||g.categoria||"",sku_cresa:g.sku||"",tipo_match:como,veredicto:r.veredicto,
     diferencia:r.diff,mejor_cadena:r.rival?.competidor||"",alternativas:r.alts,texto_ocr:S.draft?.texto||""};
@@ -658,7 +690,6 @@ function viewOnboard(){
     <div><div class="lbl">Localizador Unificado de Precios y Alternativas</div><h2 style="margin-top:4px">Ponle la lupa a la competencia</h2></div>
     <p class="muted small" style="margin:0">Toma foto a los preciadores de la competencia y compáralos al instante con lo que tenemos en Crecos, Orve y Japón.</p>
     <div class="field"><label for="o-nombre">Tu nombre</label><input id="o-nombre" value="${esc(p.nombre)}" autocomplete="name"></div>
-    <div class="field"><label for="o-agencia">Tu agencia o equipo</label>${CFG.AGENCIAS.length?`<select id="o-agencia"><option value="">—</option>${CFG.AGENCIAS.map(a=>`<option ${a===p.agencia?"selected":""}>${esc(a)}</option>`).join("")}</select>`:`<input id="o-agencia" value="${esc(p.agencia)}" placeholder="Crecos Mall del Sur, Mercadeo…">`}</div>
     <div class="field"><label for="o-pin">PIN del equipo</label><input id="o-pin" type="password" inputmode="text" value="" autocomplete="off"></div>
     <button class="btn block" id="o-ok">Entrar</button>
   </section>`;
@@ -668,6 +699,8 @@ function viewCapture(){
   if(S.flow==="result"&&S.result)return h+(S.result.ours?resultOurs(S.result.g,S.result.o,S.result.r,{isNew:true}):resultView(S.result.cap,S.result.cmp,true));
   const chip=c=>`<button class="chip" data-tienda="${esc(c)}" aria-pressed="${S.tienda===c}">${esc(c)}</button>`;
   h+=`<section class="card"><div class="lbl">¿De quién es el preciador?</div>
+    <div class="row small" style="gap:6px"><span class="pill brand">${esc(S.tienda)}</span><span>·</span><b id="ciudadTxt">${esc(S.ciudad||"Ciudad sin detectar")}</b><button class="btn ghost small" id="ubicar" style="min-height:30px;padding:4px 10px">📍 Detectar</button></div>
+    ${!S.ciudad&&S.ciudadPend?`<div class="small muted">No se pudo leer la ubicación. Elige la ciudad al revisar los datos.</div>`:""}
     <div class="small muted" style="margin-bottom:-4px">Competencia</div>
     <div class="chips" role="group" aria-label="Competidor">${CFG.COMPETIDORES.map(chip).join("")}</div>
     <div class="small muted" style="margin-bottom:-4px">Nuestras cadenas</div>
@@ -695,9 +728,10 @@ function reviewForm(){
   const iaNota=d._basico?`<div class="banner"><b>No se usó la IA:</b> ${esc(iaErrTxt(S.iaError))}${S.iaDetalle?`<br><small style="word-break:break-word">Detalle: ${esc(S.iaDetalle)}</small>`:""}<br>El lector básico no entiende letra a mano; revisa bien o escribe los datos.</div>`:"";
   return `<section class="card">
     ${S.photoUrl?`<img class="preview" src="${S.photoUrl}" alt="Foto del preciador">`:""}
-    <div><h2>Revisa los datos</h2><div class="row" style="margin-top:6px">${esCresa(S.tienda)?`<span class="pill brand">Preciador de ${esc(S.tienda)}</span>`:`<span class="pill">${esc(S.tienda)}</span>`}${d._tiendaDet?`<span class="pill">detectado en el cartel</span>`:""}${origen}</div></div>
+    <div><h2>Revisa los datos</h2><div class="row" style="margin-top:6px">${esCresa(S.tienda)?`<span class="pill brand">Preciador de ${esc(S.tienda)}${S.ciudad?" · "+esc(S.ciudad):""}</span>`:`<span class="pill">${esc(S.tienda)}${S.ciudad?" · "+esc(S.ciudad):""}</span>`}${d._tiendaDet?`<span class="pill">detectado en el cartel</span>`:""}${origen}</div></div>
     ${iaNota}${d._leido&&d.legible===false?`<div class="banner">No se lee bien. Toma otra foto más de cerca o escribe los datos.</div>`:""}
     <div class="grid2">
+      <div class="field full"><label for="f-ciudad">Ciudad</label><select id="f-ciudad"><option value="">— Elige la ciudad —</option>${CIUDADES_ORDEN.concat(["Otra"]).map(c=>`<option ${c===S.ciudad?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
       <div class="field full"><label for="f-producto">Producto</label><input id="f-producto" value="${esc(d.producto)}" placeholder="TV 43 pulgadas FHD"></div>
       <div class="field"><label for="f-marca">Marca</label><input id="f-marca" value="${esc(d.marca)}"></div>
       <div class="field"><label for="f-modelo" id="lbl-modelo">${esCresa(S.tienda)?"Código Cresa":"Modelo"}</label><input id="f-modelo" value="${esc(d.modelo)}" autocapitalize="characters"></div>
@@ -751,7 +785,7 @@ function resultView(cap,cmp,isNew){
   if(match&&cmp.matchTipo==="parecido"&&vs)vs+=" (comparado con lo más parecido)";
   const best=match?.best;
   let h=`<section class="card">
-    <div class="row" style="justify-content:space-between"><span class="pill brand">${esc(cap.competidor)}</span><span class="muted small">${esc(cap.agencia||"")}${cap.creado?" · "+ago(cap.creado):""}</span></div>
+    <div class="row" style="justify-content:space-between"><span class="pill brand">${esc(cap.competidor)}</span><span class="muted small">${esc(cap.ciudad||cap.agencia||"")}${cap.creado?" · "+ago(cap.creado):""}</span></div>
     <h2>${esc(cap.producto||"Producto sin nombre")}</h2>
     ${cap.marca||cap.modelo?`<div class="muted small">${esc([cap.marca,cap.modelo].filter(Boolean).join(" · "))}</div>`:""}
     <div class="duel">
@@ -787,7 +821,7 @@ function resultOurs(g,ours,r,opts={}){
   if(r.veredicto==="ellos"&&r.rival)vs=`${esc(r.rival.competidor)} está ${fmt(r.diff)} más abajo. ${vs}`;
   if(r.veredicto==="sin_comp")vs="Nadie ha capturado este producto en la competencia todavía. Cuando alguien lo haga, aparecerá aquí.";
   let h=`<section class="card">
-    <div class="row" style="justify-content:space-between"><span class="pill brand">${esc(ours?.cadena||"Cresa")}</span><span class="muted small">${esc(opts.agencia||"")}${opts.creado?" · "+ago(opts.creado):""}</span></div>
+    <div class="row" style="justify-content:space-between"><span class="pill brand">${esc(ours?.cadena||"Cresa")}</span><span class="muted small">${esc(opts.ciudad||"")}${opts.creado?" · "+ago(opts.creado):""}</span></div>
     <h2>${esc(g.nombre||"Producto")}</h2>
     <div class="muted small">${esc([g.marca,g.sku?"Código "+g.sku:"Sin código Cresa identificado"].filter(Boolean).join(" · "))}</div>
     <div class="tag ours"><span class="w">${esc(ours?.cadena||"Cresa")}${ours?.fuente==="foto"?" · foto":""}</span><span class="p">${ours?priceHTML(money(ours.contado)):"—"}</span><span class="c">${esc(cuotaTxt(ours))||"&nbsp;"}${money(ours?.entrada)!=null?` · entrada ${fmt(money(ours.entrada))}`:""}</span></div>
@@ -797,7 +831,7 @@ function resultOurs(g,ours,r,opts={}){
     const dc=x.dContado==null?"":Math.abs(x.dContado)<1?`<span class="pill warn">igual</span>`:`<span class="pill ${x.dContado<0?"good":"bad"}">${x.dContado<0?"Nosotros −":"Nosotros +"}${fmt(Math.abs(x.dContado))}</span>`;
     const cuotaLinea=c.cuota!=null||ours?.cuota?`<div class="small">Cuota: <b>${esc(cuotaTxt(c))||"—"}</b> ellos · <b>${esc(cuotaTxt(ours))||"—"}</b> nosotros${x.dCuotaMes!=null&&Math.abs(x.dCuotaMes)>=0.5?` · <span class="${x.dCuotaMes<0?"diff good":"diff bad"}" style="display:inline">${x.dCuotaMes<0?"−":"+"}${fmt(Math.abs(Math.round(x.dCuotaMes)))} al mes</span>`:""}</div>`:"";
     const plazo=plazoTxt(c)||plazoTxt(ours)?`<div class="small muted">Plazo: ${esc(plazoTxt(c)||"—")} ellos · ${esc(plazoTxt(ours)||"—")} nosotros${x.dTotal!=null?` · total a crédito ${x.dTotal<=0?"nuestro "+fmt(Math.abs(x.dTotal))+" menos":"nuestro "+fmt(x.dTotal)+" más"}`:""}${money(c.entrada)!=null?` · entrada ellos ${fmt(money(c.entrada))}`:""}</div>`:"";
-    return `<div class="alt"><div class="alt-h"><div class="alt-n">${esc(c.competidor)}<div class="muted small" style="font-weight:500">${esc([c.producto,c.agencia,c.creado?ago(c.creado):""].filter(Boolean).join(" · "))}</div></div><div class="alt-p num">${fmt(c.contado)}</div></div>
+    return `<div class="alt"><div class="alt-h"><div class="alt-n">${esc(c.competidor)}<div class="muted small" style="font-weight:500">${esc([c.producto,c.ciudad||c.agencia,c.creado?ago(c.creado):""].filter(Boolean).join(" · "))}</div></div><div class="alt-p num">${fmt(c.contado)}</div></div>
       <div class="row"><span class="pill ${nc}">${nt}</span>${dc}${c.regalo?`<span class="small muted">${esc(c.regalo)}</span>`:""}</div>${cuotaLinea}${plazo}</div>`;}).join("")+`</section>`;
   if(g.cadenas?.length>1||(g.cadenas?.length&&g.cadenas[0].cadena!==ours?.cadena))h+=`<section class="card"><div class="lbl">Precio en nuestras cadenas</div><div class="chains">${chainRows(g,{})}</div></section>`;
   if(r.alts.length)h+=`<section class="card"><div class="lbl">Alternativas para ofrecer</div>`+r.alts.map(a=>{const p=S.bySku.get(a.sku);if(!p)return "";const [pc,pt]=ALT[a.tipo]||["",a.tipo];const bc=p.best;
@@ -815,17 +849,20 @@ function itemHTML(c){
   return `<button class="item" data-cap="${esc(c.id)}">
     ${src?`<img class="thumb" src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`:`<div class="thumb"></div>`}
     <div style="min-width:0"><div class="t">${esc(c.producto||"Sin nombre")}</div>
-      <div class="m">${c.origen==="cresa"?'<b>Cresa</b> · ':""}${esc(c.competidor)}${c.agencia?" · "+esc(c.agencia):""} · ${c._local?"por enviar":ago(c.creado)}</div>
+      <div class="m">${c.origen==="cresa"?'<b>Cresa</b> · ':""}${esc(c.competidor)}${(c.ciudad||c.agencia)?" · "+esc(c.ciudad||c.agencia):""} · ${c._local?"por enviar":ago(c.creado)}</div>
       ${vt?`<span class="pill ${pc}" style="margin-top:4px">${vt}</span>`:""}</div>
     <div class="pr num">${fmt(money(c.contado))}${money(c.cuota)?`<div class="m" style="font-family:var(--f-body);font-weight:500">${esc(cuotaTxt(capFromRow(c)))}</div>`:""}</div></button>`;
 }
 function viewFeed(){
   let h=setupBanner();const q=norm(S.feedQ);
-  const list=S.caps.filter(c=>(S.feedFilter==="Todas"||c.competidor===S.feedFilter)&&(!q||norm([c.producto,c.marca,c.modelo,c.agencia,c.categoria,c.autor].join(" ")).includes(q)));
+  const cdd=c=>c.ciudad||c.agencia||"";
+  const list=S.caps.filter(c=>(S.feedFilter==="Todas"||c.competidor===S.feedFilter)&&(!S.feedCiudad||cdd(c)===S.feedCiudad)&&(!q||norm([c.producto,c.marca,c.modelo,c.ciudad,c.agencia,c.categoria,c.autor].join(" ")).includes(q)));
   const v=k=>list.filter(c=>(c.origen==="cresa"?{nosotros:"nosotros",ellos:"ellos"}[c.veredicto]:c.veredicto)===k).length;
   h+=`<div class="stats"><div class="stat"><b class="num">${list.length}</b><span>capturas</span></div><div class="stat good"><b class="num">${v("nosotros")}</b><span>Cresa gana</span></div><div class="stat bad"><b class="num">${v("ellos")}</b><span>Competencia gana</span></div></div>
-  <div class="field"><label for="feedQ" class="lbl">Buscar en capturas</label><input id="feedQ" type="search" value="${esc(S.feedQ)}" placeholder="Producto, marca, agencia…"></div>
+  <div class="field"><label for="feedQ" class="lbl">Buscar en capturas</label><input id="feedQ" type="search" value="${esc(S.feedQ)}" placeholder="Producto, marca, ciudad…"></div>
   <div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:8px"><div class="chips" style="min-width:0">${["Todas",...CFG.COMPETIDORES.concat(CFG.CADENAS).filter(t=>S.caps.some(c=>c.competidor===t))].map(t=>`<button class="chip" data-ff="${esc(t)}" aria-pressed="${S.feedFilter===t}">${esc(t)}</button>`).join("")}</div><button class="btn ghost small" id="reload" aria-label="Actualizar">↻</button></div>`;
+  const ciudades=[...new Set(S.caps.map(cdd).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+  if(ciudades.length>1)h+=`<div class="chips">${["",...ciudades].map(c=>`<button class="chip" data-fc="${esc(c)}" aria-pressed="${(S.feedCiudad||"")===c}">${c?esc(c):"Todas las ciudades"}</button>`).join("")}</div>`;
   if(!list.length)h+=`<div class="empty"><strong>${S.capsLoaded||!CFG.API_URL?"Todavía no hay capturas":"Cargando…"}</strong>Cada foto que tome el equipo en la competencia aparece aquí para todos.</div>`;
   else h+=`<div class="feed">${list.map(itemHTML).join("")}</div>`;
   return h;
@@ -845,7 +882,7 @@ function openCap(id){
   const cap=capFromRow(c);
   if(c.origen==="cresa"){const g=(c.sku_cresa&&S.bySku.get(String(c.sku_cresa)))||finGrupo({sku:c.sku_cresa||"",modelo:c.modelo,nombre:c.producto,marca:c.marca,categoria:c.categoria,cadenas:[]});
     const ours={cadena:c.competidor,contado:cap.contado,cuota:cap.cuota,ncuotas:cap.ncuotas,frecuencia:c.frecuencia,entrada:cap.entrada,plan:c.plan,promo:c.regalo};
-    return sheet(`${thumbBig(c)}${resultOurs(g,ours,vsCompetencia(g,ours),{agencia:c.agencia,creado:c.creado})}<div class="row">${c.autor?`<span class="muted small">Capturado por ${esc(c.autor)}</span>`:""}<button class="btn small" data-close="1" style="margin-left:auto">Cerrar</button></div>`);}
+    return sheet(`${thumbBig(c)}${resultOurs(g,ours,vsCompetencia(g,ours),{ciudad:c.ciudad||c.agencia,creado:c.creado})}<div class="row">${c.autor?`<span class="muted small">Capturado por ${esc(c.autor)}</span>`:""}<button class="btn small" data-close="1" style="margin-left:auto">Cerrar</button></div>`);}
   const cmp=cmpFromRow(c);
   const big=c._foto||(c.foto_id?`https://drive.google.com/thumbnail?id=${encodeURIComponent(c.foto_id)}&sz=w1000`:"");
   $("#sheet").innerHTML=`<div class="sheet-bg" data-close="1"><div class="sheet" role="dialog" aria-label="Detalle de captura">
@@ -876,24 +913,26 @@ document.addEventListener("click",async e=>{
   const t=e.target.closest("button,[data-close],[data-prod]");if(!t)return;const d=t.dataset;
   if(d.prod&&t.tagName!=="BUTTON"){openProduct(d.prod);return;}
   if(d.tab){S.tab=d.tab;render();window.scrollTo(0,0);if(d.tab==="competencia")loadCaps();return;}
-  if(d.tienda){S.tienda=d.tienda;ls.set("ch_tienda",S.tienda);document.querySelectorAll("[data-tienda]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tienda===S.tienda));
+  if(d.tienda){S.tienda=d.tienda;ls.set("ch_tienda",S.tienda);if(S.flow==="idle"){render();return;}document.querySelectorAll("[data-tienda]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tienda===S.tienda));
     if(S.flow==="review"){S.draft={...S.draft,...readFormRaw(),_tiendaDet:null};render();}return;}
   if(d.prod){openProduct(d.prod);return;}
   if(d.ff){S.feedFilter=d.ff;render();return;}
+  if(d.fc!=null){S.feedCiudad=d.fc;render();return;}
   if(d.cap){openCap(d.cap);return;}
   if(d.copy!=null){copy(d.copy);return;}
   if(d.close&&(e.target===t||t.tagName==="BUTTON")){$("#sheet").innerHTML="";return;}
   switch(t.id){
     case "o-ok":{
-      const nombre=$("#o-nombre").value.trim(),agencia=$("#o-agencia").value.trim(),pin=$("#o-pin").value.trim();
+      const nombre=$("#o-nombre").value.trim(),pin=$("#o-pin").value.trim();
       if(!nombre)return toast("Escribe tu nombre");
-      S.perfil={nombre,agencia,pin};
+      S.perfil={nombre,pin};
       if(CFG.API_URL){t.disabled=true;try{await apiGet("ping");}catch(err){t.disabled=false;return toast(err.message==="pin"?"PIN incorrecto":"Sin conexión. Intenta de nuevo con señal.");}}
-      ls.set("ch_perfil",S.perfil);render();loadCatalog(true);loadCaps();break;}
+      ls.set("ch_perfil",S.perfil);render();loadCatalog(true);loadCaps();actualizarCiudad();break;}
     case "manual":S.photo=null;S.photoUrl="";S.draft={};S.flow="review";render();break;
     case "save":onSave();break;
     case "cancel":S.flow="idle";S.photo=null;S.photoUrl="";render();break;
     case "again":S.flow="idle";S.result=null;S.photo=null;S.photoUrl="";render();window.scrollTo(0,0);break;
+    case "ubicar":t.disabled=true;await actualizarCiudad(true);t.disabled=false;if(!S.ciudad)toast("Activa la ubicación del navegador o elige la ciudad al revisar");else{toast("Ciudad: "+S.ciudad);render();}break;
     case "reload":loadCaps().then(()=>toast("Actualizado"));break;
     case "catReload":loadCatalog(true);break;
   }
@@ -910,6 +949,7 @@ setInterval(()=>{if(document.visibilityState==="visible"){flushQueue();if(S.tab=
 
 /* ============ arranque ============ */
 loadMaestro();
+if(S.perfil?.pin)actualizarCiudad();
 loadCatalog(false).then(()=>{render();flushQueue();loadCaps();});
 render();
 </script>
