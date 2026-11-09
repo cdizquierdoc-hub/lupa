@@ -1,0 +1,24 @@
+# Prueba el Apps Script desde fuera: GET ping y POST (igual que el teléfono).
+name: Diagnostico Apps Script
+on:
+  workflow_dispatch:
+jobs:
+  probar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probar
+        run: |
+          URL=$(grep -o 'https://script.google.com/macros/s/[^"]*/exec' config.js | head -1)
+          echo "URL: ${URL:0:60}..."
+          echo "=== GET ping (sin PIN)"
+          curl -sSL "$URL?action=ping" ; echo
+          echo "=== POST sin PIN (debe decir error pin)"
+          curl -sSL -H 'Content-Type: text/plain;charset=utf-8' --data '{"action":"leer"}' "$URL" | head -c 600; echo
+          echo "=== POST con foto, sin PIN"
+          B64=$(base64 -w0 .github/prueba-preciador.jpg)
+          printf '{"action":"leer","pin":"x","foto":"data:image/jpeg;base64,%s"}' "$B64" > body.json
+          ls -la body.json
+          curl -sSL -H 'Content-Type: text/plain;charset=utf-8' --data-binary @body.json "$URL" | head -c 600; echo
+          echo "=== Encabezados del POST"
+          curl -sS -D - -o /dev/null -H 'Content-Type: text/plain;charset=utf-8' --data '{"action":"leer"}' "$URL" | head -20
