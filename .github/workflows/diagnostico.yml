@@ -1,30 +1,31 @@
-# Prueba el Apps Script desde fuera: GET ping y POST (igual que el teléfono).
+# Prueba el Apps Script desde fuera, igual que el teléfono (POST con foto y PIN).
 name: Diagnostico Apps Script
 on:
   workflow_dispatch:
+    inputs:
+      pin:
+        description: PIN del equipo
+        required: false
 jobs:
   probar:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Probar
+      - name: Probar lectura con IA
+        env:
+          PIN: ${{ inputs.pin }}
         run: |
+          [ -n "$PIN" ] && echo "::add-mask::$PIN"
           URL=$(grep -o 'https://script.google.com/macros/s/[^"]*/exec' config.js | head -1)
-          echo "URL: ${URL:0:60}..."
-          echo "=== GET ping (sin PIN)"
-          curl -sSL "$URL?action=ping" ; echo
-          echo "=== POST sin PIN (debe decir error pin)"
-          curl -sSL -H 'Content-Type: text/plain;charset=utf-8' --data '{"action":"leer"}' "$URL" | head -c 600; echo
-          echo "=== POST con foto, sin PIN"
-          B64=$(base64 -w0 .github/prueba-preciador.jpg)
-          printf '{"action":"leer","pin":"x","foto":"data:image/jpeg;base64,%s"}' "$B64" > body.json
-          ls -la body.json
-          curl -sSL -H 'Content-Type: text/plain;charset=utf-8' --data-binary @body.json "$URL" | head -c 600; echo
-          echo "=== POST con foto REAL grande, sin PIN"
-          python3 -c "from PIL import Image;im=Image.open('.github/foto-real.jpg');im=im.resize((1600,int(1600*im.height/im.width)));im.save('grande.jpg',quality=80)" || cp .github/foto-real.jpg grande.jpg
-          B64=$(base64 -w0 grande.jpg)
-          printf '{"action":"leer","pin":"x","foto":"data:image/jpeg;base64,%s"}' "$B64" > body2.json
-          ls -la body2.json
-          curl -sSL -H 'Content-Type: text/plain;charset=utf-8' --data-binary @body2.json "$URL" | head -c 600; echo
-          echo "=== Encabezados del POST"
-          curl -sS -D - -o /dev/null -H 'Content-Type: text/plain;charset=utf-8' --data '{"action":"leer"}' "$URL" | head -20
+          echo "=== ping"
+          curl -sSL "$URL?action=ping&pin=$PIN"; echo
+          B64=$(base64 -w0 .github/foto-real.jpg)
+          python3 - "$PIN" "$B64" > body.json <<'PY'
+          import json,sys
+          print(json.dumps({"action":"leer","pin":sys.argv[1],"foto":"data:image/jpeg;base64,"+sys.argv[2],
+            "listas":{"categorias":["Televisores","Refrigeración","Lavado"],"tiendas":["Artefacta","Crecos","Orve Hogar","Japón"]}}))
+          PY
+          echo "=== leer (foto real, $(wc -c < body.json) bytes)"
+          time curl -sSL -H 'Content-Type: text/plain;charset=utf-8' --data-binary @body.json "$URL" > resp.txt
+          echo "--- respuesta (${#} ) bytes: $(wc -c < resp.txt)"
+          head -c 3000 resp.txt; echo
