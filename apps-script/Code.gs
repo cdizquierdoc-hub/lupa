@@ -17,6 +17,7 @@
  *  - Config   : PIN del equipo.
  */
 
+const VERSION_SCRIPT = '2026.11.09-ia2';
 const HOJA_CATALOGO = 'Catalogo';
 const HOJA_CAPTURAS = 'Capturas';
 const HOJA_CONFIG = 'Config';
@@ -59,11 +60,16 @@ function doGet(e) {
     const n = Math.min(Number(p.n) || 300, 1000);
     return json_({ ok: true, rows: capturas_(n) });
   }
-  if (p.action === 'ping') return json_({ ok: true });
+  if (p.action === 'ping') return json_({ ok: true, version: VERSION_SCRIPT, ia: !!config_('gemini_key') });
   return json_({ ok: false, error: 'accion' });
 }
 
 function doPost(e) {
+  try { return doPost_(e); }
+  catch (err) { return json_({ ok: false, error: 'excepcion', detalle: String(err && err.message || err).slice(0, 300) }); }
+}
+
+function doPost_(e) {
   let b;
   try { b = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'json' }); }
   if (!pinOk_(b.pin)) return json_({ ok: false, error: 'pin' });
@@ -127,7 +133,7 @@ function leer_(fotoBase64, listas) {
     contents: [{ parts: [{ text: promptLectura_(listas) }, { inline_data: { mime_type: 'image/jpeg', data: data } }] }],
     generationConfig: { temperature: 0, responseMimeType: 'application/json' }
   });
-  let ultimo = '';
+  let ultimo = '', detalle = '';
   for (const clave of claves) {
     for (const modelo of modelos) {
       const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + modelo + ':generateContent', {
@@ -144,12 +150,13 @@ function leer_(fotoBase64, listas) {
         } catch (err) { ultimo = 'respuesta'; continue; }
       }
       ultimo = String(code);
+      detalle = modelo + ': ' + r.getContentText().slice(0, 200);
       if (code === 404 || code === 400) continue;      // modelo no disponible: probar el siguiente
       if (code === 429) continue;                      // cuota agotada: siguiente modelo o clave
       if (code === 403 || code === 401) break;         // clave inválida: siguiente clave
     }
   }
-  return { ok: false, error: 'gemini_' + ultimo };
+  return { ok: false, error: 'gemini_' + ultimo, detalle: detalle };
 }
 
 /* Para probar la clave desde el editor: elige probarGemini y dale Ejecutar. */
