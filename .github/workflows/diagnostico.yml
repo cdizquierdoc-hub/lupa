@@ -12,20 +12,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Probar lectura con IA
-        env:
-          PIN: ${{ inputs.pin }}
         run: |
-          [ -n "$PIN" ] && echo "::add-mask::$PIN"
+          PIN=$(jq -r '.inputs.pin // ""' "$GITHUB_EVENT_PATH"); echo "::add-mask::$PIN"; export PIN
           URL=$(grep -o 'https://script.google.com/macros/s/[^"]*/exec' config.js | head -1)
           echo "=== ping"
           curl -sSL "$URL?action=ping&pin=$PIN"; echo
-          B64=$(base64 -w0 .github/foto-real.jpg)
-          python3 - "$PIN" "$B64" > body.json <<'PY'
-          import json,sys
-          print(json.dumps({"action":"leer","pin":sys.argv[1],"foto":"data:image/jpeg;base64,"+sys.argv[2],
+          python3 - > body.json <<'PY'
+          import json,os,base64
+          b=base64.b64encode(open('.github/foto-real.jpg','rb').read()).decode()
+          print(json.dumps({"action":"leer","pin":os.environ.get("PIN",""),"foto":"data:image/jpeg;base64,"+b,
             "listas":{"categorias":["Televisores","Refrigeración","Lavado"],"tiendas":["Artefacta","Crecos","Orve Hogar","Japón"]}}))
           PY
           echo "=== leer (foto real, $(wc -c < body.json) bytes)"
           time curl -sSL -H 'Content-Type: text/plain;charset=utf-8' --data-binary @body.json "$URL" > resp.txt
-          echo "--- respuesta (${#} ) bytes: $(wc -c < resp.txt)"
+          echo "--- bytes: $(wc -c < resp.txt)"
           head -c 3000 resp.txt; echo
