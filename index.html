@@ -154,22 +154,24 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
   <span class="net" id="net" title="Conexión"></span>
 </div></header>
 <main id="app"></main>
+<p class="muted" style="text-align:center;font-size:11px;margin:0 0 calc(90px + env(safe-area-inset-bottom,0px))">LUPA v2026.11.09-4</p>
 <nav class="tabs"><div class="tabs-in" id="tabs"></div></nav>
 <div id="sheet"></div>
 <div id="toastBox"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<script src="parser.js"></script>
-<script src="matcher.js"></script>
-<script src="config.js"></script>
+<script src="parser.js?v=2026.11.09-4"></script>
+<script src="matcher.js?v=2026.11.09-4"></script>
+<script src="config.js?v=2026.11.09-4"></script>
 <script>
 /* ============ configuración (config.js) ============ */
+const VERSION="2026.11.09-4";
 const CFG=Object.assign({
-  API_URL:"",
+  API_URL:"https://script.google.com/macros/s/AKfycbxVPV8O8qQpirRpsYI6228qiYEihwPitAvIew0lJgE_FLygEm8mFU9wIEIA6yY4jVM0Ow/exec",
   COMPETIDORES:["Artefacta","Marcimex","Comandato","Almacenes España","Jaher","Al Precio","Tía","Pycca","La Ganga","Otro"],
   CADENAS:["Crecos","Orve Hogar","Japón","Motozone","Pagamenos"],
   AGENCIAS:[]
-},window.CAZA_CONFIG||{});
+},Object.fromEntries(Object.entries(window.CAZA_CONFIG||{}).filter(([k,v])=>!(k==="API_URL"&&!v))));
 const CATEGORIAS=Matcher.CATS;
 const FRECUENCIAS=["mensual","quincenal","semanal"];
 const ICON={
@@ -225,7 +227,7 @@ const MAESTRO={lista:[],porCodigo:new Map(),marcas:[],listo:false,vendidos:[]};
 function parseTSV(txt){const out=[];for(const ln of txt.split("\n").slice(1)){if(!ln)continue;const [cod,desc,marca,cap,sub,linea,grupo]=ln.split("\t");if(cod)out.push({cod,modelo:cod,desc:desc||"",marca:marca||"",cap:cap||"",sub:sub||"",linea:linea||"",grupo:grupo||""});}return out;}
 async function loadMaestro(){
   try{
-    const [rm,rv]=await Promise.all([fetch("maestro.tsv",{cache:"no-cache"}),fetch("vendidos.tsv",{cache:"no-cache"}).catch(()=>null)]);
+    const [rm,rv]=await Promise.all([fetch("maestro.tsv?v=2026.11.09-4"),fetch("vendidos.tsv?v=2026.11.09-4").catch(()=>null)]);
     if(!rm.ok)throw 0;
     const marcas=new Set();
     const mete=row=>{const k=compact(row.cod);if(MAESTRO.porCodigo.has(k))return MAESTRO.porCodigo.get(k);MAESTRO.lista.push(row);MAESTRO.porCodigo.set(k,row);if(row.marca&&row.marca.length>2)marcas.add(row.marca);return row;};
