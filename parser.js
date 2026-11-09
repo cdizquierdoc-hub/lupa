@@ -1,4 +1,4 @@
-/* CHISME — lectura de preciadores a partir del texto del OCR.
+/* LUPA — lectura de preciadores a partir del texto del OCR.
    Recibe las líneas que devuelve Tesseract ({text, h}) y devuelve los campos del preciador.
    Funciona en el navegador (window.CazaParser) y en Node (require) para pruebas. */
 (function (root) {

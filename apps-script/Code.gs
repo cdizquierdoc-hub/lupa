@@ -1,5 +1,5 @@
 /**
- * CHISME — backend gratis en Google Sheets + Apps Script.
+ * LUPA — backend gratis en Google Sheets + Apps Script.
  *
  * Cómo instalar (5 minutos, ver README.md):
  * 1. Crea un Google Sheet nuevo. Menú Extensiones > Apps Script. Pega este archivo.
@@ -19,7 +19,7 @@
 const HOJA_CATALOGO = 'Catalogo';
 const HOJA_CAPTURAS = 'Capturas';
 const HOJA_CONFIG = 'Config';
-const CARPETA_FOTOS = 'CHISME - Fotos';
+const CARPETA_FOTOS = 'LUPA - Fotos';
 
 const COLS_CATALOGO = ['codigo', 'cadena', 'precio_contado', 'precio_normal', 'cuota', 'num_cuotas', 'frecuencia',
   'entrada', 'plan_credito', 'promo', 'stock', 'nombre', 'marca', 'categoria'];

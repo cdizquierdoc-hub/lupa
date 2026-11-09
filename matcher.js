@@ -1,4 +1,4 @@
-/* CHISME — clasificación y comparación por descripción.
+/* LUPA — clasificación y comparación por descripción.
    Los códigos y nombres de la competencia casi nunca coinciden con los de Cresa, así que
    cada producto se convierte en atributos comparables:
      categoría · tipo (no frost, QLED, doble tanque, split inverter…) · medida (pulgadas,

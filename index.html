@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>CHISME</title>
-<meta name="description" content="Comparador Hábil de Información Sobre Movidas Enemigas">
+<title>LUPA</title>
+<meta name="description" content="Localizador Unificado de Precios y Alternativas">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -149,7 +149,7 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
 </head>
 <body>
 <header class="top"><div class="top-in">
-  <div class="logo">CHISME<b>Black</b></div>
+  <div class="logo">LUPA<b>Black</b></div>
   <div class="who" id="who"></div>
   <span class="net" id="net" title="Conexión"></span>
 </div></header>
@@ -505,7 +505,7 @@ function setupBanner(){
 function viewOnboard(){
   const p=S.perfil||{};
   return `<section class="card">
-    <div><div class="lbl">Comparador Hábil de Información Sobre Movidas Enemigas</div><h2 style="margin-top:4px">¿Qué chisme trajiste hoy?</h2></div>
+    <div><div class="lbl">Localizador Unificado de Precios y Alternativas</div><h2 style="margin-top:4px">Ponle la lupa a la competencia</h2></div>
     <p class="muted small" style="margin:0">Toma foto a los preciadores de la competencia y compáralos al instante con lo que tenemos en Crecos, Orve y Japón.</p>
     <div class="field"><label for="o-nombre">Tu nombre</label><input id="o-nombre" value="${esc(p.nombre)}" autocomplete="name"></div>
     <div class="field"><label for="o-agencia">Tu agencia o equipo</label>${CFG.AGENCIAS.length?`<select id="o-agencia"><option value="">—</option>${CFG.AGENCIAS.map(a=>`<option ${a===p.agencia?"selected":""}>${esc(a)}</option>`).join("")}</select>`:`<input id="o-agencia" value="${esc(p.agencia)}" placeholder="Crecos Mall del Sur, Mercadeo…">`}</div>

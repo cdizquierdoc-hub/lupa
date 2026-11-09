@@ -1,4 +1,4 @@
-/* CHISME — configuración. Edita solo este archivo. */
+/* LUPA — configuración. Edita solo este archivo. */
 window.CAZA_CONFIG = {
   // Pega aquí la URL de tu Apps Script (termina en /exec). Ver README.md, paso 2.
   API_URL: "",

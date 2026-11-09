@@ -1,6 +1,6 @@
-# CHISME
+# LUPA
 
-**C**omparador **H**ábil de **I**nformación **S**obre **M**ovidas **E**nemigas.
+**L**ocalizador **U**nificado de **P**recios y **A**lternativas.
 
 Una app para el teléfono. El equipo le toma foto al preciador de la competencia y la app:
 
@@ -22,7 +22,7 @@ Una app para el teléfono. El equipo le toma foto al preciador de la competencia
 
 ## Cómo reconoce los productos
 
-Los códigos y nombres de la competencia casi nunca son los mismos que los nuestros. CHISME convierte cada producto en una ficha comparable y busca el más parecido, igual que PILAS cuando busca el código por la descripción:
+Los códigos y nombres de la competencia casi nunca son los mismos que los nuestros. LUPA convierte cada producto en una ficha comparable y busca el más parecido, igual que PILAS cuando busca el código por la descripción:
 
 - **Categoría**: refrigeración, TV, lavado, aires, cocinas, motos, celulares, computación…
 - **Tipo**: no frost, side by side, QLED/UHD, doble tanque/carga superior, split inverter, a gas/inducción, Core i5/Ryzen 5, scooter/utilitaria…
@@ -58,7 +58,7 @@ Si el maestro conoce el modelo de la competencia pero no está en la lista Black
 ### Paso 1 · Crear el repositorio (2 min)
 
 1. Entra a <https://github.com/new> con la cuenta **cdizquierdoc-hub**.
-2. *Repository name*: `chisme`.
+2. *Repository name*: `lupa`.
 3. Márcalo **Public**. No agregues README ni nada más.
 4. **Create repository**.
 
@@ -66,24 +66,24 @@ Si el maestro conoce el modelo de la competencia pero no está en la lista Black
 
 **Opción A:** avísale a Claude que ya está creado y él sube todo.
 
-**Opción B (tú mismo):** en la página del repositorio, *uploading an existing file* → arrastra todo el contenido de la carpeta `chisme` (incluida la carpeta `apps-script`) → **Commit changes**.
+**Opción B (tú mismo):** en la página del repositorio, *uploading an existing file* → arrastra todo el contenido de la carpeta `lupa` (incluida la carpeta `apps-script`) → **Commit changes**.
 
 ### Paso 3 · Activar la página (1 min)
 
 1. En el repositorio: **Settings → Pages**.
 2. *Source*: **Deploy from a branch** · *Branch*: **main** · carpeta **/ (root)** → **Save**.
-3. En 1 o 2 minutos queda en **https://cdizquierdoc-hub.github.io/chisme/**.
+3. En 1 o 2 minutos queda en **https://cdizquierdoc-hub.github.io/lupa/**.
 
 En este punto la app ya abre y compara contra lo vendido del mes, pero todavía no guarda nada para el equipo. Para eso sigue el paso 4.
 
 ### Paso 4 · La base de datos en Google Sheets (5 min)
 
-1. Con tu **Gmail personal** crea un Google Sheet llamado **CHISME**.
+1. Con tu **Gmail personal** crea un Google Sheet llamado **LUPA**.
    (Las cuentas corporativas suelen bloquear compartir las fotos.)
 2. **Extensiones → Apps Script**. Borra lo que haya, pega todo `apps-script/Code.gs` y guarda (💾).
 3. Arriba elige la función **setup** → **Ejecutar**. Acepta los permisos.
-   Google dirá que la app no está verificada: **Configuración avanzada → Ir a CHISME (no seguro)**. Es tu propio script.
-4. Se crean las pestañas **Catalogo**, **Capturas** y **Config**, y la carpeta *CHISME - Fotos* en tu Drive.
+   Google dirá que la app no está verificada: **Configuración avanzada → Ir a LUPA (no seguro)**. Es tu propio script.
+4. Se crean las pestañas **Catalogo**, **Capturas** y **Config**, y la carpeta *LUPA - Fotos* en tu Drive.
 5. En **Config** cambia el PIN `black2026` por el que le vas a dar al equipo.
 
 ### Paso 5 · Publicar el servidor (2 min)
