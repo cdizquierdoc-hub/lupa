@@ -154,18 +154,18 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
   <span class="net" id="net" title="Conexión"></span>
 </div></header>
 <main id="app"></main>
-<p class="muted" style="text-align:center;font-size:11px;margin:0 0 calc(90px + env(safe-area-inset-bottom,0px))">LUPA v2026.11.09-5</p>
+<p class="muted" style="text-align:center;font-size:11px;margin:0 0 calc(90px + env(safe-area-inset-bottom,0px))">LUPA v2026.11.09-6</p>
 <nav class="tabs"><div class="tabs-in" id="tabs"></div></nav>
 <div id="sheet"></div>
 <div id="toastBox"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<script src="parser.js?v=2026.11.09-5"></script>
-<script src="matcher.js?v=2026.11.09-5"></script>
-<script src="config.js?v=2026.11.09-5"></script>
+<script src="parser.js?v=2026.11.09-6"></script>
+<script src="matcher.js?v=2026.11.09-6"></script>
+<script src="config.js?v=2026.11.09-6"></script>
 <script>
 /* ============ configuración (config.js) ============ */
-const VERSION="2026.11.09-5";
+const VERSION="2026.11.09-6";
 const CFG=Object.assign({
   API_URL:"https://script.google.com/macros/s/AKfycbxVPV8O8qQpirRpsYI6228qiYEihwPitAvIew0lJgE_FLygEm8mFU9wIEIA6yY4jVM0Ow/exec",
   COMPETIDORES:["Artefacta","Marcimex","Comandato","Almacenes España","Jaher","Al Precio","Tía","Pycca","La Ganga","Otro"],
@@ -227,7 +227,7 @@ const MAESTRO={lista:[],porCodigo:new Map(),marcas:[],listo:false,vendidos:[]};
 function parseTSV(txt){const out=[];for(const ln of txt.split("\n").slice(1)){if(!ln)continue;const [cod,desc,marca,cap,sub,linea,grupo]=ln.split("\t");if(cod)out.push({cod,modelo:cod,desc:desc||"",marca:marca||"",cap:cap||"",sub:sub||"",linea:linea||"",grupo:grupo||""});}return out;}
 async function loadMaestro(){
   try{
-    const [rm,rv]=await Promise.all([fetch("maestro.tsv?v=2026.11.09-5"),fetch("vendidos.tsv?v=2026.11.09-5").catch(()=>null)]);
+    const [rm,rv]=await Promise.all([fetch("maestro.tsv?v=2026.11.09-6"),fetch("vendidos.tsv?v=2026.11.09-6").catch(()=>null)]);
     if(!rm.ok)throw 0;
     const marcas=new Set();
     const mete=row=>{const k=compact(row.cod);if(MAESTRO.porCodigo.has(k))return MAESTRO.porCodigo.get(k);MAESTRO.lista.push(row);MAESTRO.porCodigo.set(k,row);if(row.marca&&row.marca.length>2)marcas.add(row.marca);return row;};
@@ -503,16 +503,27 @@ async function prepImage(file){
 // 1) IA de Google (Gemini, nivel gratis) a través del Apps Script: lee letra a mano, caja y cartel.
 // 2) Si no hay clave, se acabó la cuota o no hay señal: lector básico dentro del teléfono.
 async function leerConIA(foto){
-  if(!CFG.API_URL||!S.perfil?.pin||!navigator.onLine)return null;
+  if(!CFG.API_URL){S.iaError="sin_url";return null;}
+  if(!S.perfil?.pin){S.iaError="sin_pin";return null;}
+  if(!navigator.onLine){S.iaError="sin_senal";return null;}
   const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),35000);
   try{
     const r=await fetch(CFG.API_URL,{method:"POST",signal:ctl.signal,headers:{"Content-Type":"text/plain;charset=utf-8"},
       body:JSON.stringify({action:"leer",pin:S.perfil.pin,foto,listas:{categorias:CATEGORIAS,tiendas:CFG.COMPETIDORES.filter(x=>x!=="Otro").concat(CFG.CADENAS)}})});
     const j=await r.json();
-    if(!j.ok){S.iaError=j.error;return null;}
-    return j.datos||null;
-  }catch(e){S.iaError="red";return null;}finally{clearTimeout(t);}
+    if(!j.ok){S.iaError=j.error||"desconocido";return null;}
+    if(!j.datos){S.iaError="script_viejo";return null;}
+    return j.datos;
+  }catch(e){S.iaError=e&&e.name==="AbortError"?"tiempo":"red";return null;}finally{clearTimeout(t);}
 }
+const IA_ERR={sin_url:"La app no tiene la URL del Sheet.",sin_pin:"Falta el PIN del equipo.",sin_senal:"El teléfono no tiene señal.",
+  red:"No se pudo conectar con el Apps Script. Revisa que la implementación diga «Cualquier persona».",tiempo:"La IA tardó demasiado en responder.",
+  pin:"El PIN no coincide con el de la pestaña Config.",accion:"El Apps Script tiene la versión vieja: pega el Code.gs nuevo y publica una «Nueva versión».",
+  script_viejo:"El Apps Script tiene la versión vieja: pega el Code.gs nuevo y publica una «Nueva versión».",
+  sin_clave:"Falta la clave: pon gemini_key en la pestaña Config.",gemini_429:"Se acabó la cuota gratis de IA de hoy.",
+  gemini_403:"La clave de IA no es válida o no tiene permiso.",gemini_401:"La clave de IA no es válida.",gemini_404:"El modelo de IA no está disponible para esa clave.",
+  gemini_400:"La IA rechazó la foto (formato).",gemini_respuesta:"La IA respondió algo que no se pudo leer."};
+const iaErrTxt=e=>IA_ERR[e]||(e?`Error de IA: ${e}`:"");
 function tiendaDetectada(txt){
   if(!txt)return null;const n=norm(txt);
   return CFG.CADENAS.concat(CFG.COMPETIDORES).find(t=>t!=="Otro"&&(n.includes(norm(t))||norm(t).includes(n)))||null;
@@ -680,8 +691,8 @@ function reviewForm(){
   const has=k=>d[k]!=null&&d[k]!=="";
   const credito=has("cuota")||has("ncuotas")||has("frecuencia")||has("entrada")||has("plan");
   const extra=has("normal")||has("regalo");
-  const origen=d._ia?`<span class="pill good">Leído con IA</span>`:d._basico?`<span class="pill warn">Lector básico${S.iaError==="sin_clave"?" · falta clave de IA":S.iaError?" · IA no disponible":""}</span>`:"";
-  const iaNota=d._basico?`<div class="banner">El lector básico no entiende letra a mano. Revisa bien o escribe los datos.</div>`:"";
+  const origen=d._ia?`<span class="pill good">Leído con IA</span>`:d._basico?`<span class="pill warn">Lector básico</span>`:"";
+  const iaNota=d._basico?`<div class="banner"><b>No se usó la IA:</b> ${esc(iaErrTxt(S.iaError))}<br>El lector básico no entiende letra a mano; revisa bien o escribe los datos.</div>`:"";
   return `<section class="card">
     ${S.photoUrl?`<img class="preview" src="${S.photoUrl}" alt="Foto del preciador">`:""}
     <div><h2>Revisa los datos</h2><div class="row" style="margin-top:6px">${esCresa(S.tienda)?`<span class="pill brand">Preciador de ${esc(S.tienda)}</span>`:`<span class="pill">${esc(S.tienda)}</span>`}${d._tiendaDet?`<span class="pill">detectado en el cartel</span>`:""}${origen}</div></div>
