@@ -12,7 +12,8 @@
  *  - Catalogo : precios Black de Cresa (una fila por código y cadena). Negocios pega aquí.
  *               Solo hace falta codigo + cadena + precio; nombre, marca y categoría salen del maestro.
  *               Si la columna stock dice 0 o "no", ese producto no se ofrece.
- *  - Capturas : todo lo que fotografía el equipo. Se llena solo.
+ *  - Capturas : todo lo que fotografía el equipo, de la competencia y de nuestras cadenas
+ *               (columna origen = competencia / cresa). Se llena solo.
  *  - Config   : PIN del equipo.
  */
 
@@ -23,7 +24,7 @@ const CARPETA_FOTOS = 'LUPA - Fotos';
 
 const COLS_CATALOGO = ['codigo', 'cadena', 'precio_contado', 'precio_normal', 'cuota', 'num_cuotas', 'frecuencia',
   'entrada', 'plan_credito', 'promo', 'stock', 'nombre', 'marca', 'categoria'];
-const COLS_CAPTURAS = ['id', 'fecha', 'autor', 'agencia', 'competidor', 'producto', 'marca', 'modelo', 'categoria',
+const COLS_CAPTURAS = ['id', 'fecha', 'autor', 'agencia', 'competidor', 'origen', 'producto', 'marca', 'modelo', 'categoria',
   'contado', 'antes', 'cuota', 'num_cuotas', 'frecuencia', 'entrada', 'plan', 'regalo',
   'veredicto', 'tipo_match', 'sku_cresa', 'diferencia', 'mejor_cadena', 'alternativas', 'en_maestro_sin_stock', 'foto_id', 'foto', 'texto_ocr'];
 
@@ -92,7 +93,7 @@ function guardar_(c, fotoBase64) {
       } catch (err) { /* se guarda la captura sin foto */ }
     }
     const fecha = c.creado ? new Date(c.creado) : new Date();
-    const row = [c.id || Utilities.getUuid(), fecha, c.autor, c.agencia, c.competidor, c.producto, c.marca, c.modelo, c.categoria,
+    const row = [c.id || Utilities.getUuid(), fecha, c.autor, c.agencia, c.competidor, c.origen || 'competencia', c.producto, c.marca, c.modelo, c.categoria,
       num_(c.contado), num_(c.antes), num_(c.cuota), num_(c.ncuotas), c.frecuencia, num_(c.entrada), c.plan, c.regalo,
       c.veredicto, c.tipo_match, c.sku_cresa, num_(c.diferencia), c.mejor_cadena, JSON.stringify(c.alternativas || []), c.en_maestro_sin_stock, fotoId, fotoUrl,
       String(c.texto_ocr || '').slice(0, 2000)];

@@ -253,6 +253,17 @@ function prettyName(m){
   for(const w of [base,sub,marca,cap].join(" ").split(/\s+/)){const k=norm(w);if(!k)continue;if(seen.has(k)&&!/^[\d.,-]+$/.test(k))continue;seen.add(k);out.push(w);}
   const t=out.join(" ");return t.charAt(0).toUpperCase()+t.slice(1);
 }
+function finGrupo(g){
+  g.cadenas.sort((a,b)=>(CFG.CADENAS.indexOf(a.cadena)+99)%99-(CFG.CADENAS.indexOf(b.cadena)+99)%99);
+  const ps=g.cadenas.map(c=>c.contado).filter(v=>v!=null);g.min=ps.length?Math.min(...ps):null;
+  const cs=g.cadenas.filter(c=>c.cuota!=null).map(c=>toMonthly(c.cuota,c.frecuencia));g.minCuotaMes=cs.length?Math.min(...cs):null;
+  g.best=g.cadenas.filter(c=>c.contado!=null).sort((a,b)=>a.contado-b.contado)[0]||g.cadenas[0]||null;
+  g.sinPrecio=!g.cadenas.length;
+  g._prof=Matcher.profile(g);g.categoria=g._prof.cat||g.categoria;
+  g.key=norm([g.nombre,g.marca,g.modelo,g.categoria,g.sku,g.sub,g.cap].join(" "));
+  return g;
+}
+function grupoDesdeMaestro(v){return {sku:v.cod,modelo:v.cod,nombre:prettyName(v),marca:v.marca,categoria:"",cap:v.cap,sub:v.sub,linea:v.linea,grupo:v.grupo,desc:v.desc,enMaestro:true,cadenas:[]};}
 function rebuildCatalog(rows){
   S.catRows=rows;
   const m=new Map();let sinSt=0;const sinStockSet=new Set();
@@ -265,14 +276,18 @@ function rebuildCatalog(rows){
     const g=m.get(k);
     g.cadenas.push({cadena:r.cadena||"",contado:money(r.precio_contado),normal:money(r.precio_normal),cuota:money(r.cuota),ncuotas:money(r.num_cuotas),frecuencia:norm(r.frecuencia||""),entrada:money(r.entrada),plan:r.plan_credito||"",promo:r.promo||"",stock:money(r.stock)});
   }
-  for(const g of m.values()){
-    g.cadenas.sort((a,b)=>(CFG.CADENAS.indexOf(a.cadena)+99)%99-(CFG.CADENAS.indexOf(b.cadena)+99)%99);
-    const ps=g.cadenas.map(c=>c.contado).filter(v=>v!=null);g.min=ps.length?Math.min(...ps):null;
-    const cs=g.cadenas.filter(c=>c.cuota!=null).map(c=>toMonthly(c.cuota,c.frecuencia));g.minCuotaMes=cs.length?Math.min(...cs):null;
-    g.best=g.cadenas.filter(c=>c.contado!=null).sort((a,b)=>a.contado-b.contado)[0]||g.cadenas[0];
-    g._prof=Matcher.profile(g);g.categoria=g._prof.cat||g.categoria;
-    g.key=norm([g.nombre,g.marca,g.modelo,g.categoria,g.sku,g.sub,g.cap].join(" "));
+  // precios que el equipo fotografió en nuestras cadenas (el más reciente por código y cadena)
+  const fotos=new Map();
+  for(const c of S.caps||[]){if(c.origen!=="cresa"||!c.sku_cresa)continue;const k=c.sku_cresa+"|"+c.competidor;const t=c.creado||0;if(!fotos.has(k)||t>(fotos.get(k).creado||0))fotos.set(k,c);}
+  for(const c of fotos.values()){
+    const k=String(c.sku_cresa);if(sinStockSet.has(compact(k)))continue;
+    let g=m.get(k);
+    if(!g){const ms=maestroDe(k);g=ms?grupoDesdeMaestro(ms):{sku:k,modelo:k,nombre:c.producto||k,marca:c.marca||"",categoria:c.categoria||"",cadenas:[]};g.cadenas=[];m.set(k,g);}
+    if(g.cadenas.some(x=>x.cadena===c.competidor&&x.fuente!=="foto"))continue;
+    g.cadenas=g.cadenas.filter(x=>x.cadena!==c.competidor);
+    g.cadenas.push({cadena:c.competidor,contado:money(c.contado),normal:money(c.normal??c.antes),cuota:money(c.cuota),ncuotas:money(c.ncuotas??c.num_cuotas),frecuencia:norm(c.frecuencia||""),entrada:money(c.entrada),plan:c.plan||"",promo:c.regalo||"",fuente:"foto",fecha:c.creado});
   }
+  for(const g of m.values())finGrupo(g);
   S.conPrecio=m.size;
   for(const v of MAESTRO.vendidos){
     if(m.has(v.cod)||sinStockSet.has(compact(v.cod)))continue;
@@ -365,6 +380,73 @@ function compare(cap){
   cmp.notaCredito=creditNote(cap,match);
   cmp.argumento=speech(cap,match,cmp);
   return cmp;
+}
+const esCresa=t=>CFG.CADENAS.includes(t);
+const plazoTxt=o=>o&&money(o.ncuotas)?`${money(o.ncuotas)} ${({semanal:"semanas",quincenal:"quincenas"})[o.frecuencia]||"meses"}`:"";
+function perfilCaptura(c){if(!c._p)c._p=Matcher.profile({producto:c.producto,marca:c.marca,modelo:c.modelo,categoria:c.categoria});return c._p;}
+function identificarNuestro(f){
+  const k=compact(f.modelo);
+  if(k){for(const g of S.catalog)if(compact(g.sku)===k)return {g,como:"codigo"};
+    const ms=maestroDe(f.modelo);if(ms)return {g:finGrupo(grupoDesdeMaestro(ms)),como:"codigo"};}
+  const q=Matcher.profile({producto:f.producto,marca:f.marca,modelo:f.modelo,categoria:f.categoria});
+  const top=Matcher.rank(q,S.catalog,10).find(x=>{const n=Matcher.nivel(q,x);return n==="mismo_modelo"||n==="equivalente";});
+  if(top)return {g:top.p,como:Matcher.nivel(q,top)};
+  if(MAESTRO.listo){const t=Matcher.rank(q,MAESTRO.lista,3)[0];if(t&&t.det.codigo>=800)return {g:finGrupo(grupoDesdeMaestro(t.p)),como:"codigo"};}
+  return {g:finGrupo({sku:"",modelo:f.modelo,nombre:f.producto||f.modelo,marca:f.marca,categoria:f.categoria,cadenas:[]}),como:"nuevo"};
+}
+function vsCompetencia(g,ours){
+  const q=g._prof||Matcher.profile(g);const NIV={mismo_modelo:3,equivalente:2,parecido:1};
+  const porComp=new Map();
+  for(const c0 of S.caps){
+    if(c0.origen==="cresa")continue;const c=capFromRow(c0);if(c.contado==null&&c.cuota==null)continue;
+    const cp=perfilCaptura(c0);const r=Matcher.score(q,cp);const hit={p:{_prof:cp},det:r.det,s:r.s};
+    let n=Matcher.nivel(q,hit);if(!n)continue;
+    if(n==="parecido"&&(r.det.conflictos||!q.cat||cp.cat!==q.cat||(r.det.dMedida!=null&&r.det.dMedida>0.2)||r.s<80))continue;
+    const prev=porComp.get(c.competidor);
+    if(!prev||NIV[n]>NIV[prev.nivel]||(NIV[n]===NIV[prev.nivel]&&(c.creado||0)>(prev.c.creado||0)))porComp.set(c.competidor,{c,nivel:n,det:r.det});
+  }
+  const oc=money(ours?.contado),om=toMonthly(money(ours?.cuota),ours?.frecuencia);
+  const rows=[...porComp.values()].map(x=>{const c=x.c;
+    x.dContado=oc!=null&&c.contado!=null?Math.round((oc-c.contado)*100)/100:null;
+    const tm=toMonthly(c.cuota,c.frecuencia);x.dCuotaMes=om!=null&&tm!=null?Math.round((om-tm)*100)/100:null;
+    const tE=c.cuota&&c.ncuotas?c.cuota*c.ncuotas+(c.entrada||0):null,tN=ours?.cuota&&ours?.ncuotas?money(ours.cuota)*money(ours.ncuotas)+(money(ours.entrada)||0):null;
+    x.dTotal=tE&&tN?Math.round(tN-tE):null;return x;})
+    .sort((a,b)=>(NIV[b.nivel]-NIV[a.nivel])||((a.c.contado??1e9)-(b.c.contado??1e9)));
+  const conP=rows.filter(r=>r.dContado!=null);
+  let veredicto="sin_comp",diff=null,rival=null;
+  if(conP.length){const cheapest=conP.slice().sort((a,b)=>a.c.contado-b.c.contado)[0];rival=cheapest.c;diff=cheapest.dContado;
+    veredicto=diff<=-1?"nosotros":diff<1?"igual":"ellos";}
+  else{const conC=rows.filter(r=>r.dCuotaMes!=null);if(conC.length){const m=conC.slice().sort((a,b)=>a.dCuotaMes-b.dCuotaMes).pop();rival=m.c;veredicto=m.dCuotaMes<=-0.5?"nosotros":m.dCuotaMes<0.5?"igual":"ellos";}}
+  const gana=conP.filter(r=>r.dContado<=-1).length;
+  // alternativas nuestras si alguien está más barato
+  const alts=[];
+  if(veredicto==="ellos"||veredicto==="igual"){
+    const ref=rival?.contado??oc;const refC=rows.map(r=>toMonthly(r.c.cuota,r.c.frecuencia)).filter(v=>v!=null);const minC=refC.length?Math.min(...refC):null;
+    const pool=Matcher.rank(q,S.catalog,60).filter(x=>x.p!==g&&x.p.sku!==g.sku&&x.p.min!=null&&(!q.cat||x.p._prof.cat===q.cat))
+      .sort((a,b)=>(!!a.det.conflictos-!!b.det.conflictos)||(b.s-a.s));
+    const tipoTxt=x=>x.det.conflictos?` (otro tipo: ${Object.values(x.p._prof.tipos).join(", ").toUpperCase()||"distinto"})`:"";
+    const add=(p,tipo,razon)=>{if(alts.length<3&&!alts.some(a=>a.sku===p.sku))alts.push({sku:p.sku,tipo,razon});};
+    const ch=ref!=null&&pool.find(x=>x.p.min<ref-0.5);if(ch)add(ch.p,"mas_barato",`${fmt(Math.round((ref-ch.p.min)*100)/100)} menos que ${rival?.competidor||"la competencia"}${tipoTxt(ch)}.`);
+    const cr=pool.filter(x=>x.p.minCuotaMes!=null&&(minC==null||x.p.minCuotaMes<minC-0.5))[0];
+    if(cr){const c=cr.p.cadenas.filter(x=>x.cuota!=null).sort((a,b)=>toMonthly(a.cuota,a.frecuencia)-toMonthly(b.cuota,b.frecuencia))[0];add(cr.p,"mejor_credito",`Cuota de ${cuotaTxt(c)}${c.entrada===0?", sin entrada":""}.`);}
+    const pr=ref!=null&&pool.find(x=>x.p.cadenas.some(c=>c.promo)&&x.p.min<=ref*1.15);if(pr){const c=pr.p.cadenas.find(c=>c.promo);add(pr.p,"mejor_promo",`${c.promo}.`);}
+  }
+  // texto para el cliente
+  let arg="";
+  if(rival&&ours){
+    const r=rows.find(x=>x.c===rival);
+    if(veredicto==="nosotros"&&diff!=null)arg=`En ${rival.competidor} este producto está a ${fmt(rival.contado)}. Aquí en ${ours.cadena} lo lleva a ${fmt(oc)}: se ahorra ${fmt(Math.abs(diff))}.`;
+    else if(veredicto==="nosotros")arg=`Con nosotros la cuota es ${cuotaTxt(ours)}, menos que en ${rival.competidor} (${cuotaTxt(rival)}).`;
+    else if(veredicto==="igual")arg=`Tenemos el mismo precio que ${rival.competidor}, ${fmt(oc)}.`;
+    else {arg=`Sé que en ${rival.competidor} lo vio a ${fmt(rival.contado)}.`;}
+    if(veredicto!=="nosotros"){
+      if(r&&r.dCuotaMes!=null&&r.dCuotaMes<-0.5)arg+=` Pero con nosotros la cuota es ${cuotaTxt(ours)} frente a ${cuotaTxt(rival)}${ours.entrada===0||money(ours.entrada)===0?", sin entrada":""}.`;
+      const a=alts[0]&&S.bySku.get(alts[0].sku);if(a)arg+=` Le puedo ofrecer ${a.nombre} a ${fmt(a.best?.contado)} en ${a.best?.cadena}.`;
+      if(ours.promo)arg+=` Además, ${ours.promo.charAt(0).toLowerCase()+ours.promo.slice(1)}.`;
+      if(!a&&!(r&&r.dCuotaMes!=null&&r.dCuotaMes<-0.5)&&money(ours.cuota))arg+=` Con nosotros lo lleva a crédito directo: ${cuotaTxt(ours)}${money(ours.entrada)===0?", sin entrada":""}.`;
+    }
+  }
+  return {rows,veredicto,diff,rival,gana,total:conP.length,alts,argumento:arg};
 }
 function creditNote(cap,match){
   if(!match||cap.cuota==null)return "";
@@ -465,6 +547,8 @@ async function onSave(){
   if(!f.producto&&!f.modelo)return toast("Escribe al menos el producto o el modelo");
   if(f.contado==null&&f.cuota==null)return toast("Falta el precio o la cuota");
   const cap={...f,id:uid(),competidor:S.tienda,agencia:S.perfil?.agencia||"",autor:S.perfil?.nombre||"",creado:Date.now()};
+  if(esCresa(S.tienda))return onSaveOurs(cap);
+  cap.origen="competencia";
   const cmp=compare(cap);
   const captura={...cap,antes:cap.normal,veredicto:cmp.veredicto,sku_cresa:cmp.matchSku||"",diferencia:cmp.diff,mejor_cadena:cmp.mejorCadena||"",
     categoria:cap.categoria||cmp.categoria||"",tipo_match:cmp.matchTipo||"",en_maestro_sin_stock:cmp.enMaestro||"",
@@ -474,13 +558,27 @@ async function onSave(){
   S.result={cap,cmp};S.flow="result";render();window.scrollTo({top:0,behavior:"smooth"});
   flushQueue().then(()=>{if(queue().some(q=>q.captura.id===cap.id))toast("Guardado en el teléfono. Se envía cuando haya señal.");else toast("Guardado para todo el equipo");});
 }
+function onSaveOurs(cap){
+  const {g,como}=identificarNuestro(cap);
+  cap.origen="cresa";
+  const ours={cadena:cap.competidor,contado:cap.contado,normal:cap.normal,cuota:cap.cuota,ncuotas:cap.ncuotas,frecuencia:cap.frecuencia,entrada:cap.entrada,plan:cap.plan,promo:cap.regalo};
+  const r=vsCompetencia(g,ours);
+  const captura={...cap,antes:cap.normal,categoria:cap.categoria||g.categoria||"",sku_cresa:g.sku||"",tipo_match:como,veredicto:r.veredicto,
+    diferencia:r.diff,mejor_cadena:r.rival?.competidor||"",alternativas:r.alts,texto_ocr:S.draft?.texto||""};
+  enqueue({captura,foto:S.photo});
+  S.caps.unshift({...captura,_local:true,_foto:S.photoUrl});
+  rebuildCatalog(S.catRows||[]);
+  const g2=g.sku&&S.bySku.get(g.sku)||g;
+  S.result={ours:true,g:g2,o:ours,r};S.flow="result";render();window.scrollTo({top:0,behavior:"smooth"});
+  flushQueue().then(()=>{if(queue().some(q=>q.captura.id===cap.id))toast("Guardado en el teléfono. Se envía cuando haya señal.");else toast("Precio Cresa guardado para todo el equipo");});
+}
 async function loadCaps(){
   if(!CFG.API_URL||!S.perfil?.pin)return;
   try{const j=await apiGet("capturas","&n=300");
     const pend=queue().map(q=>({...q.captura,_local:true}));
     S.caps=pend.concat(j.rows.map(r=>({...r,creado:r.fecha,normal:r.antes,ncuotas:r.num_cuotas})));
     ls.set("ch_caps",j.rows.slice(0,100).map(r=>({...r,creado:r.fecha,normal:r.antes,ncuotas:r.num_cuotas})));
-    S.capsLoaded=true;
+    S.capsLoaded=true;rebuildCatalog(S.catRows||[]);
     if(S.tab==="competencia"&&!document.activeElement?.matches("input")&&!$("#sheet").innerHTML)render();
   }catch{}
 }
@@ -515,9 +613,13 @@ function viewOnboard(){
 }
 function viewCapture(){
   let h=setupBanner();
-  if(S.flow==="result"&&S.result)return h+resultView(S.result.cap,S.result.cmp,true);
-  h+=`<section class="card"><div class="lbl">¿En qué competidor estás?</div>
-    <div class="chips" role="group" aria-label="Competidor">${CFG.COMPETIDORES.map(c=>`<button class="chip" data-tienda="${esc(c)}" aria-pressed="${S.tienda===c}">${esc(c)}</button>`).join("")}</div></section>`;
+  if(S.flow==="result"&&S.result)return h+(S.result.ours?resultOurs(S.result.g,S.result.o,S.result.r,{isNew:true}):resultView(S.result.cap,S.result.cmp,true));
+  const chip=c=>`<button class="chip" data-tienda="${esc(c)}" aria-pressed="${S.tienda===c}">${esc(c)}</button>`;
+  h+=`<section class="card"><div class="lbl">¿De quién es el preciador?</div>
+    <div class="small muted" style="margin-bottom:-4px">Competencia</div>
+    <div class="chips" role="group" aria-label="Competidor">${CFG.COMPETIDORES.map(chip).join("")}</div>
+    <div class="small muted" style="margin-bottom:-4px">Nuestras cadenas</div>
+    <div class="chips" role="group" aria-label="Cadena Cresa">${CFG.CADENAS.map(chip).join("")}</div></section>`;
   if(S.flow==="idle"){
     h+=`<section class="card"><div class="shoot"><div class="big">${ICON.cam}</div><strong>Foto al preciador</strong>
       <span class="muted small">Acércate para que el precio llene la foto. Una etiqueta por foto, sin reflejo.</span>
@@ -537,12 +639,12 @@ function reviewForm(){
   const w=k=>d._leido&&(d[k]==null||d[k]==="")?" warn":"";
   return `<section class="card">
     ${S.photoUrl?`<img class="preview" src="${S.photoUrl}" alt="Foto del preciador">`:""}
-    <div><h2>Revisa los datos</h2><p class="muted small" style="margin:4px 0 0">${d._leido?"El lector puede equivocarse: confirma precio y cuota con la foto.":"Llena lo que ves en el preciador."}</p></div>
+    <div><h2>Revisa los datos</h2>${esCresa(S.tienda)?`<span class="pill brand" style="margin-top:6px">Preciador de ${esc(S.tienda)}</span>`:""}<p class="muted small" style="margin:4px 0 0">${d._leido?"El lector puede equivocarse: confirma precio y cuota con la foto.":"Llena lo que ves en el preciador."}</p></div>
     ${d._leido&&!d.legible?`<div class="banner">No se leyó casi nada. Toma otra foto más de cerca o llena a mano.</div>`:""}
     <div class="grid2">
       <div class="field full${w("producto")}"><label for="f-producto">Producto</label><input id="f-producto" value="${esc(d.producto)}" placeholder="Refrigeradora 14 pies No Frost"></div>
       <div class="field${w("marca")}"><label for="f-marca">Marca</label><input id="f-marca" value="${esc(d.marca)}"></div>
-      <div class="field${w("modelo")}"><label for="f-modelo">Modelo</label><input id="f-modelo" value="${esc(d.modelo)}" autocapitalize="characters"></div>
+      <div class="field${w("modelo")}"><label for="f-modelo" id="lbl-modelo">${esCresa(S.tienda)?"Código Cresa":"Modelo"}</label><input id="f-modelo" value="${esc(d.modelo)}" autocapitalize="characters"></div>
       <div class="field full"><label for="f-categoria">Categoría${d._catSug?" (sugerida)":""}</label><select id="f-categoria">${opt(CATEGORIAS,d.categoria)}</select></div>
       <div class="field${w("contado")}"><label for="f-contado">Precio contado $</label><input id="f-contado" inputmode="decimal" value="${d.contado??""}"></div>
       <div class="field"><label for="f-normal">Precio antes $</label><input id="f-normal" inputmode="decimal" value="${d.normal??""}"></div>
@@ -554,7 +656,7 @@ function reviewForm(){
       <div class="field full"><label for="f-regalo">Regalo o promo extra</label><input id="f-regalo" value="${esc(d.regalo)}" placeholder="Lleva gratis…, 20% con tarjeta…"></div>
     </div>
     ${d.texto?`<details><summary>Ver texto leído</summary><pre>${esc(d.texto)}</pre></details>`:""}
-    <button class="btn block" id="save">Comparar y guardar</button>
+    <button class="btn block" id="save">${esCresa(S.tienda)?"Guardar y comparar con la competencia":"Comparar y guardar"}</button>
     <button class="btn ghost block" id="cancel">Descartar</button>
   </section>`;
 }
@@ -570,7 +672,7 @@ function chainRows(g,cap){
   return g.cadenas.map(c=>{
     let d="";const cc=money(cap.contado);
     if(c.contado!=null&&cc!=null){const x=c.contado-cc;d=Math.abs(x)<1?`<span class="diff">igual</span>`:`<span class="diff ${x<0?"good":"bad"}">${x<0?"−":"+"}${fmt(Math.abs(x))}</span>`;}
-    const det=[cuotaTxt(c),c.entrada!=null?`entrada ${fmt(c.entrada)}`:"",c.plan,c.promo].filter(Boolean).join(" · ");
+    const det=[cuotaTxt(c),c.entrada!=null?`entrada ${fmt(c.entrada)}`:"",c.plan,c.promo,c.fuente==="foto"?`foto ${c.fecha?ago(c.fecha):""}`:""].filter(Boolean).join(" · ");
     return `<div class="chain"><span class="cn">${esc(c.cadena)}</span><span class="cd">${esc(det)||"&nbsp;"}</span><span class="cp num">${fmt(c.contado)}${d}</span></div>`;
   }).join("");
 }
@@ -613,32 +715,75 @@ function resultView(cap,cmp,isNew){
   if(isNew)h+=`<button class="btn block" id="again">Capturar otro precio</button>`;
   return h;
 }
+const VER_OURS={nosotros:["v-good","Estamos más bajos"],igual:["v-warn","Mismo precio que la competencia"],ellos:["v-bad","La competencia está más baja"],sin_comp:["v-none","Sin capturas de la competencia"]};
+const NIV_TXT={mismo_modelo:["good","Mismo modelo"],equivalente:["brand","Equivalente"],parecido:["","Parecido"]};
+function resultOurs(g,ours,r,opts={}){
+  const [vc,vt]=VER_OURS[r.veredicto];
+  let vs="";
+  if(r.total)vs=`Más baratos que ${r.gana} de ${r.total} competidor${r.total>1?"es":""} capturado${r.total>1?"s":""}.`;
+  if(r.veredicto==="ellos"&&r.rival)vs=`${esc(r.rival.competidor)} está ${fmt(r.diff)} más abajo. ${vs}`;
+  if(r.veredicto==="sin_comp")vs="Nadie ha capturado este producto en la competencia todavía. Cuando alguien lo haga, aparecerá aquí.";
+  let h=`<section class="card">
+    <div class="row" style="justify-content:space-between"><span class="pill brand">${esc(ours?.cadena||"Cresa")}</span><span class="muted small">${esc(opts.agencia||"")}${opts.creado?" · "+ago(opts.creado):""}</span></div>
+    <h2>${esc(g.nombre||"Producto")}</h2>
+    <div class="muted small">${esc([g.marca,g.sku?"Código "+g.sku:"Sin código Cresa identificado"].filter(Boolean).join(" · "))}</div>
+    <div class="tag ours"><span class="w">${esc(ours?.cadena||"Cresa")}${ours?.fuente==="foto"?" · foto":""}</span><span class="p">${ours?priceHTML(money(ours.contado)):"—"}</span><span class="c">${esc(cuotaTxt(ours))||"&nbsp;"}${money(ours?.entrada)!=null?` · entrada ${fmt(money(ours.entrada))}`:""}</span></div>
+    <div class="verdict ${vc}"><div class="v-t">${vt}</div>${vs?`<div class="v-s">${vs}</div>`:""}</div>
+  </section>`;
+  if(r.rows.length)h+=`<section class="card"><div class="lbl">Contra la competencia</div>`+r.rows.map(x=>{const c=x.c;const [nc,nt]=NIV_TXT[x.nivel];
+    const dc=x.dContado==null?"":Math.abs(x.dContado)<1?`<span class="pill warn">igual</span>`:`<span class="pill ${x.dContado<0?"good":"bad"}">${x.dContado<0?"Nosotros −":"Nosotros +"}${fmt(Math.abs(x.dContado))}</span>`;
+    const cuotaLinea=c.cuota!=null||ours?.cuota?`<div class="small">Cuota: <b>${esc(cuotaTxt(c))||"—"}</b> ellos · <b>${esc(cuotaTxt(ours))||"—"}</b> nosotros${x.dCuotaMes!=null&&Math.abs(x.dCuotaMes)>=0.5?` · <span class="${x.dCuotaMes<0?"diff good":"diff bad"}" style="display:inline">${x.dCuotaMes<0?"−":"+"}${fmt(Math.abs(Math.round(x.dCuotaMes)))} al mes</span>`:""}</div>`:"";
+    const plazo=plazoTxt(c)||plazoTxt(ours)?`<div class="small muted">Plazo: ${esc(plazoTxt(c)||"—")} ellos · ${esc(plazoTxt(ours)||"—")} nosotros${x.dTotal!=null?` · total a crédito ${x.dTotal<=0?"nuestro "+fmt(Math.abs(x.dTotal))+" menos":"nuestro "+fmt(x.dTotal)+" más"}`:""}${money(c.entrada)!=null?` · entrada ellos ${fmt(money(c.entrada))}`:""}</div>`:"";
+    return `<div class="alt"><div class="alt-h"><div class="alt-n">${esc(c.competidor)}<div class="muted small" style="font-weight:500">${esc([c.producto,c.agencia,c.creado?ago(c.creado):""].filter(Boolean).join(" · "))}</div></div><div class="alt-p num">${fmt(c.contado)}</div></div>
+      <div class="row"><span class="pill ${nc}">${nt}</span>${dc}${c.regalo?`<span class="small muted">${esc(c.regalo)}</span>`:""}</div>${cuotaLinea}${plazo}</div>`;}).join("")+`</section>`;
+  if(g.cadenas?.length>1||(g.cadenas?.length&&g.cadenas[0].cadena!==ours?.cadena))h+=`<section class="card"><div class="lbl">Precio en nuestras cadenas</div><div class="chains">${chainRows(g,{})}</div></section>`;
+  if(r.alts.length)h+=`<section class="card"><div class="lbl">Alternativas para ofrecer</div>`+r.alts.map(a=>{const p=S.bySku.get(a.sku);if(!p)return "";const [pc,pt]=ALT[a.tipo]||["",a.tipo];const bc=p.best;
+    return `<div class="alt"><div class="alt-h"><div class="alt-n">${esc(p.nombre)}<div class="muted small" style="font-weight:500">${esc([p.marca,p.sku,bc?.cadena].filter(Boolean).join(" · "))}</div></div><div class="alt-p num">${fmt(bc?.contado)}</div></div>
+      <div class="row"><span class="pill ${pc}">${esc(pt)}</span>${cuotaTxt(bc)?`<span class="small muted">${esc(cuotaTxt(bc))}</span>`:""}</div><div class="small">${esc(a.razon)}</div></div>`;}).join("")+`</section>`;
+  if(r.argumento)h+=`<section class="card"><div class="lbl">Qué decirle al cliente</div><div class="speech">${esc(r.argumento)}</div><button class="btn ghost small" data-copy="${esc(r.argumento)}">Copiar para WhatsApp</button></section>`;
+  if(opts.isNew)h+=`<button class="btn block" id="again">Capturar otro precio</button>`;
+  return h;
+}
 function capFromRow(c){return {...c,competidor:c.competidor,contado:money(c.contado),normal:money(c.normal??c.antes),cuota:money(c.cuota),ncuotas:money(c.ncuotas??c.num_cuotas),entrada:money(c.entrada)};}
 function cmpFromRow(c){return {enMaestro:c.en_maestro_sin_stock||null,matchSku:c.sku_cresa||null,matchTipo:c.tipo_match||"mismo_modelo",veredicto:c.veredicto||"sin_match",diff:money(c.diferencia),mejorCadena:c.mejor_cadena,alternativas:Array.isArray(c.alternativas)?c.alternativas:[]};}
 function thumbSrc(c){return c._foto||(c.foto_id?`https://drive.google.com/thumbnail?id=${encodeURIComponent(c.foto_id)}&sz=w240`:"");}
 function itemHTML(c){
-  const [vc,vt]=VER[c.veredicto]||["v-none",""];const pc={"v-good":"good","v-bad":"bad","v-warn":"warn","v-none":""}[vc];const src=thumbSrc(c);
+  const [vc,vt]=(c.origen==="cresa"?VER_OURS:VER)[c.veredicto]||["v-none",""];const pc={"v-good":"good","v-bad":"bad","v-warn":"warn","v-none":""}[vc];const src=thumbSrc(c);
   return `<button class="item" data-cap="${esc(c.id)}">
     ${src?`<img class="thumb" src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`:`<div class="thumb"></div>`}
     <div style="min-width:0"><div class="t">${esc(c.producto||"Sin nombre")}</div>
-      <div class="m">${esc(c.competidor)}${c.agencia?" · "+esc(c.agencia):""} · ${c._local?"por enviar":ago(c.creado)}</div>
+      <div class="m">${c.origen==="cresa"?'<b>Cresa</b> · ':""}${esc(c.competidor)}${c.agencia?" · "+esc(c.agencia):""} · ${c._local?"por enviar":ago(c.creado)}</div>
       ${vt?`<span class="pill ${pc}" style="margin-top:4px">${vt}</span>`:""}</div>
     <div class="pr num">${fmt(money(c.contado))}${money(c.cuota)?`<div class="m" style="font-family:var(--f-body);font-weight:500">${esc(cuotaTxt(capFromRow(c)))}</div>`:""}</div></button>`;
 }
 function viewFeed(){
   let h=setupBanner();const q=norm(S.feedQ);
   const list=S.caps.filter(c=>(S.feedFilter==="Todas"||c.competidor===S.feedFilter)&&(!q||norm([c.producto,c.marca,c.modelo,c.agencia,c.categoria,c.autor].join(" ")).includes(q)));
-  const v=k=>list.filter(c=>c.veredicto===k).length;
+  const v=k=>list.filter(c=>(c.origen==="cresa"?{nosotros:"nosotros",ellos:"ellos"}[c.veredicto]:c.veredicto)===k).length;
   h+=`<div class="stats"><div class="stat"><b class="num">${list.length}</b><span>capturas</span></div><div class="stat good"><b class="num">${v("nosotros")}</b><span>Cresa gana</span></div><div class="stat bad"><b class="num">${v("ellos")}</b><span>Competencia gana</span></div></div>
   <div class="field"><label for="feedQ" class="lbl">Buscar en capturas</label><input id="feedQ" type="search" value="${esc(S.feedQ)}" placeholder="Producto, marca, agencia…"></div>
-  <div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:8px"><div class="chips" style="min-width:0">${["Todas",...CFG.COMPETIDORES.filter(t=>S.caps.some(c=>c.competidor===t))].map(t=>`<button class="chip" data-ff="${esc(t)}" aria-pressed="${S.feedFilter===t}">${esc(t)}</button>`).join("")}</div><button class="btn ghost small" id="reload" aria-label="Actualizar">↻</button></div>`;
+  <div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:8px"><div class="chips" style="min-width:0">${["Todas",...CFG.COMPETIDORES.concat(CFG.CADENAS).filter(t=>S.caps.some(c=>c.competidor===t))].map(t=>`<button class="chip" data-ff="${esc(t)}" aria-pressed="${S.feedFilter===t}">${esc(t)}</button>`).join("")}</div><button class="btn ghost small" id="reload" aria-label="Actualizar">↻</button></div>`;
   if(!list.length)h+=`<div class="empty"><strong>${S.capsLoaded||!CFG.API_URL?"Todavía no hay capturas":"Cargando…"}</strong>Cada foto que tome el equipo en la competencia aparece aquí para todos.</div>`;
   else h+=`<div class="feed">${list.map(itemHTML).join("")}</div>`;
   return h;
 }
+function sheet(inner){$("#sheet").innerHTML=`<div class="sheet-bg" data-close="1"><div class="sheet" role="dialog">${inner}</div></div>`;}
+function thumbBig(c){const b=c._foto||(c.foto_id?`https://drive.google.com/thumbnail?id=${encodeURIComponent(c.foto_id)}&sz=w1000`:"");return b?`<img class="preview" src="${esc(b)}" alt="Foto del preciador" referrerpolicy="no-referrer">`:"";}
+function openProduct(sku){
+  let g=S.bySku.get(sku);
+  if(!g){const ms=maestroDe(sku);if(!ms)return;g=finGrupo(grupoDesdeMaestro(ms));g.fueraBlack=true;}
+  const ours=g.best?{...g.best}:null;
+  const r=vsCompetencia(g,ours);
+  sheet(`${g.fueraBlack?`<div class="banner">Este código existe en Cresa pero no está en la lista de Black ni se vendió este mes.</div>`:g.sinPrecio?`<div class="banner">Lo tenemos (se vendió este mes) pero no hay precio Black. Toma foto a su preciador en tienda para guardarlo.</div>`:""}
+    ${resultOurs(g,ours,r,{})}<button class="btn small block" data-close="1">Cerrar</button>`);
+}
 function openCap(id){
   const c=S.caps.find(x=>String(x.id)===String(id));if(!c)return;
-  const cap=capFromRow(c);const cmp=cmpFromRow(c);
+  const cap=capFromRow(c);
+  if(c.origen==="cresa"){const g=(c.sku_cresa&&S.bySku.get(String(c.sku_cresa)))||finGrupo({sku:c.sku_cresa||"",modelo:c.modelo,nombre:c.producto,marca:c.marca,categoria:c.categoria,cadenas:[]});
+    const ours={cadena:c.competidor,contado:cap.contado,cuota:cap.cuota,ncuotas:cap.ncuotas,frecuencia:c.frecuencia,entrada:cap.entrada,plan:c.plan,promo:c.regalo};
+    return sheet(`${thumbBig(c)}${resultOurs(g,ours,vsCompetencia(g,ours),{agencia:c.agencia,creado:c.creado})}<div class="row">${c.autor?`<span class="muted small">Capturado por ${esc(c.autor)}</span>`:""}<button class="btn small" data-close="1" style="margin-left:auto">Cerrar</button></div>`);}
+  const cmp=cmpFromRow(c);
   const big=c._foto||(c.foto_id?`https://drive.google.com/thumbnail?id=${encodeURIComponent(c.foto_id)}&sz=w1000`:"");
   $("#sheet").innerHTML=`<div class="sheet-bg" data-close="1"><div class="sheet" role="dialog" aria-label="Detalle de captura">
     ${big?`<img class="preview" src="${esc(big)}" alt="Foto del preciador" referrerpolicy="no-referrer">`:""}
@@ -647,20 +792,30 @@ function openCap(id){
   </div></div>`;
 }
 function viewSearch(){
-  let h=`<div class="field"><label for="sq" class="lbl">Busca un producto de Cresa</label><input id="sq" type="search" value="${esc(S.searchQ)}" placeholder="Modelo, marca o producto"></div>`;
+  let h=`<div class="field"><label for="sq" class="lbl">Código o producto de Cresa</label><input id="sq" type="search" value="${esc(S.searchQ)}" placeholder="Ej. SMCAS122IGL o refrigeradora 14 pies" autocapitalize="characters"></div>
+  <p class="muted small" style="margin:0">Toca un producto para ver cómo está frente a la competencia.</p>`;
   if(!S.catalog.length)return h+`<div class="empty"><strong>Catálogo vacío</strong>Negocios debe cargar los precios de Black en el Google Sheet.</div>`;
   const q=norm(S.searchQ).split(/[^a-z0-9]+/).filter(t=>t.length>1);
-  const res=(q.length?S.catalog.filter(g=>q.every(t=>g.key.includes(t))):S.catalog).sort((a,b)=>(b.min!=null)-(a.min!=null)).slice(0,40);
+  const qc=compact(S.searchQ);
+  let res=(q.length?S.catalog.filter(g=>q.every(t=>g.key.includes(t))||(qc.length>=4&&compact(g.sku).includes(qc))):S.catalog);
+  res=res.sort((a,b)=>((qc&&compact(b.sku)===qc)-(qc&&compact(a.sku)===qc))||((b.min!=null)-(a.min!=null))).slice(0,40);
+  // códigos que existen en el maestro pero no están en Black ni vendidos
+  const extra=qc.length>=4&&MAESTRO.listo?MAESTRO.lista.filter(r=>!S.bySku.has(r.cod)&&compact(r.cod).includes(qc)).slice(0,5):[];
   h+=`<div class="row" style="justify-content:space-between"><span class="muted small">${q.length?res.length+" resultados":S.conPrecio+" con precio Black · "+(S.catalog.length-S.conPrecio)+" vendidos sin precio"}${S.catUpdated?" · actualizado "+ago(S.catUpdated):""}</span><button class="btn ghost small" id="catReload">Actualizar precios</button></div>`;
-  h+=res.map(g=>`<section class="card"><div><strong>${esc(g.nombre)}</strong><div class="muted small">${esc([g.marca,g.categoria,"Código "+g.sku].filter(Boolean).join(" · "))}</div></div>${g.cadenas.length?`<div class="chains">${chainRows(g,{})}</div>`:`<span class="pill">Vendido este mes · sin precio Black</span>`}</section>`).join("");
+  const nComp=g=>{const r=vsCompetencia(g,g.best);return r.total?` · <span class="pill ${r.veredicto==="nosotros"?"good":r.veredicto==="ellos"?"bad":"warn"}">${r.gana}/${r.total} más baratos</span>`:"";};
+  h+=res.map(g=>`<section class="card" data-prod="${esc(g.sku)}" role="button" tabindex="0" style="cursor:pointer"><div><strong>${esc(g.nombre)}</strong><div class="muted small">${esc([g.marca,g.categoria,"Código "+g.sku].filter(Boolean).join(" · "))}${q.length?nComp(g):""}</div></div>${g.cadenas.length?`<div class="chains">${chainRows(g,{})}</div>`:`<span class="pill">Vendido este mes · sin precio Black</span>`}</section>`).join("");
+  if(extra.length)h+=`<div class="lbl">Fuera de Black (sin stock)</div>`+extra.map(r=>`<section class="card" data-prod="${esc(r.cod)}" role="button" tabindex="0" style="cursor:pointer"><div><strong>${esc(prettyName(r))}</strong><div class="muted small">${esc([r.marca,"Código "+r.cod].join(" · "))}</div></div><span class="pill">No está en Black ni en vendidos</span></section>`).join("");
   return h;
 }
 
 /* ============ eventos ============ */
 document.addEventListener("click",async e=>{
-  const t=e.target.closest("button,[data-close]");if(!t)return;const d=t.dataset;
+  const t=e.target.closest("button,[data-close],[data-prod]");if(!t)return;const d=t.dataset;
+  if(d.prod&&t.tagName!=="BUTTON"){openProduct(d.prod);return;}
   if(d.tab){S.tab=d.tab;render();window.scrollTo(0,0);if(d.tab==="competencia")loadCaps();return;}
-  if(d.tienda){S.tienda=d.tienda;ls.set("ch_tienda",S.tienda);document.querySelectorAll("[data-tienda]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tienda===S.tienda));return;}
+  if(d.tienda){S.tienda=d.tienda;ls.set("ch_tienda",S.tienda);document.querySelectorAll("[data-tienda]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tienda===S.tienda));
+    const lb=$("#lbl-modelo");if(lb)lb.textContent=esCresa(S.tienda)?"Código Cresa":"Modelo";const sv=$("#save");if(sv)sv.textContent=esCresa(S.tienda)?"Guardar y comparar con la competencia":"Comparar y guardar";return;}
+  if(d.prod){openProduct(d.prod);return;}
   if(d.ff){S.feedFilter=d.ff;render();return;}
   if(d.cap){openCap(d.cap);return;}
   if(d.copy!=null){copy(d.copy);return;}

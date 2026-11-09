@@ -134,10 +134,22 @@ Los teléfonos bajan los precios al abrir, se actualizan cada 10 minutos o con *
 
 ## Uso en tienda
 
-1. **Capturar:** elige el competidor → foto al preciador → revisa los datos (la categoría ya viene sugerida) → **Comparar y guardar**.
-2. Sale el precio de ellos vs. el nuestro por cadena, el veredicto, hasta 3 alternativas y el texto para el cliente, con botón para copiar.
-3. **Competencia:** todo lo que capturó el equipo, con filtros y buscador.
-4. **Nuestros precios:** buscador del catálogo.
+**Foto a la competencia** (elige Artefacta, Marcimex…):
+foto al preciador → revisa los datos → **Comparar y guardar**. Sale el precio de ellos frente al nuestro por cadena, el veredicto, hasta 3 alternativas y el texto para el cliente.
+
+**Foto a nuestro preciador** (elige Crecos, Orve Hogar, Japón…):
+foto → revisa (el campo dice *Código Cresa*) → **Guardar y comparar con la competencia**. Sale:
+- nuestro precio frente a lo que el equipo ya capturó en cada competidor (mismo modelo, equivalente o parecido),
+- diferencia de contado, de cuota al mes, plazo (meses, semanas o quincenas) y total a crédito,
+- si estamos más altos o más bajos ("más baratos que 2 de 3 competidores"),
+- si alguien está más bajo: alternativas nuestras más baratas o con mejor crédito,
+- el texto para el cliente.
+
+Ese precio **queda guardado como precio Cresa** de esa cadena (marcado "foto") y se usa en las comparaciones de todos. Si Negocios carga el precio Black de esa cadena, manda el de Negocios.
+
+**Nuestros precios**: escribe un código (ej. `SMCAS122IGL`) o un producto y toca el resultado para ver cómo está frente a la competencia. También encuentra códigos que existen en Cresa pero no están en Black.
+
+**Competencia**: todo lo capturado por el equipo, de la competencia y de nuestras cadenas, con filtros y buscador.
 
 Sin señal: se guarda en el teléfono y se envía solo cuando vuelve la conexión.
 
