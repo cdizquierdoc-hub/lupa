@@ -17,7 +17,7 @@
  *  - Config   : PIN del equipo.
  */
 
-const VERSION_SCRIPT = '2026.11.10-ia4';
+const VERSION_SCRIPT = '2026.11.10-ia5';
 const HOJA_CATALOGO = 'Catalogo';
 const HOJA_CAPTURAS = 'Capturas';
 const HOJA_CONFIG = 'Config';
@@ -25,10 +25,6 @@ const CARPETA_FOTOS = 'LUPA - Fotos';
 
 const COLS_CATALOGO = ['codigo', 'cadena', 'precio_contado', 'precio_normal', 'cuota', 'num_cuotas', 'frecuencia',
   'entrada', 'plan_credito', 'promo', 'stock', 'nombre', 'marca', 'categoria'];
-const COLS_CAPTURAS = ['id', 'fecha', 'autor', 'agencia', 'competidor', 'origen', 'producto', 'marca', 'modelo', 'categoria',
-  'contado', 'antes', 'cuota', 'num_cuotas', 'frecuencia', 'entrada', 'plan', 'regalo',
-  'veredicto', 'tipo_match', 'sku_cresa', 'diferencia', 'mejor_cadena', 'alternativas', 'en_maestro_sin_stock', 'foto_id', 'foto', 'texto_ocr'];
-
 /* ---------- instalación ---------- */
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -75,6 +71,7 @@ function doPost_(e) {
   if (!pinOk_(b.pin)) return json_({ ok: false, error: 'pin' });
   if (b.action === 'guardar') return json_(guardar_(b.captura || {}, b.foto));
   if (b.action === 'leer') return json_(leerFoto_(b.foto, b.listas || {}));
+  if (b.action === 'editar') return json_(editar_(b));
   return json_({ ok: false, error: 'accion' });
 }
 
@@ -96,45 +93,58 @@ function promptLectura_(listas) {
   const tiendas = (listas.tiendas || []).join(', ');
   return [
     'Eres el lector de preciadores de Cresa, un retail de electrodomésticos en Ecuador.',
-    'La foto muestra un preciador, cartel o etiqueta de precio: impreso, digital, de tinta electrónica o escrito a mano, a veces pegado sobre la caja.',
+    'La foto muestra un preciador, cartel, sticker o hoja de crédito, impresa, digital, de tinta electrónica o escrita a mano.',
     'Extrae SOLO lo que se ve en la foto. Si algo no se ve, usa null. No inventes ni completes con conocimiento externo.',
     '',
-    'Tipos de preciador frecuentes (reconócelos y lee cada número según su rótulo):',
-    '1) Etiqueta de tinta electrónica (blanca con marco, sin logo): arriba el nombre del producto; "PVP" con un precio más pequeño o tachado = precio_antes; el número grande con "OFERTA" = precio_contado; el código va pequeño al pie.',
-    '2) Sticker de precio (redondo o de color) con "PRECIO" y el nombre de la tienda: el número grande es precio_contado. Si hay una leyenda con "CONTADO" y "CUOTA CRÉDITO", cada número va con su rótulo: el que está junto a CONTADO es precio_contado y el que está junto a CUOTA es cuota.',
-    '3) Sticker de campaña (ej. "Black Days", "Unidades limitadas") sobre una tarjeta con un precio grande: ese precio es precio_contado. La línea de abajo trae el modelo y la descripción: codigo = modelo; producto = descripción corta.',
-    '4) Hoja de crédito (tabla con PVP, CUOTA INICIAL, CUOTA MENSUAL, NO. DE CUOTAS, PRECIO FINAL): PVP = precio_contado (o precio_antes si dice antes); CUOTA INICIAL = entrada; CUOTA MENSUAL = cuota; NO. DE CUOTAS = num_cuotas; PRECIO FINAL = plan_credito como texto ("precio final a crédito 1699.99"), nunca como contado. Si esa hoja aparece cortada, no inventes sus campos: escribe un aviso.',
+    'Tipos de preciador frecuentes (lee cada número según su rótulo):',
+    '1) Etiqueta de tinta electrónica (blanca, sin logo): nombre arriba; "PVP" pequeño o tachado = precio_antes; el número grande con "OFERTA" = precio_contado; el código va al pie en letra pequeña.',
+    '2) Sticker de precio con el nombre de la tienda ("PRECIO GANGA", "PRECIO PROMO"): el número grande es precio_contado. Si hay una leyenda "CONTADO" / "TARJETA CRÉDITO" o "CUOTA CRÉDITO", es solo una leyenda para saber qué es cada número: no es un valor.',
+    '3) Sticker de campaña ("Black Days", "Unidades limitadas") sobre una tarjeta con precio grande: ese precio es precio_contado. La línea de abajo trae el modelo y la descripción.',
+    '4) Hoja de crédito (tabla con encabezado tipo "Ganguitas Mensuales" o "Cuotas"): el número grande del encabezado es la cuota mensual si dice mensual; y en la tabla: PVP* = pvp_lista (precio de lista de la hoja); CUOTA INICIAL = entrada; CUOTA MENSUAL = cuota; NO. DE CUOTAS = num_cuotas; PRECIO FINAL = precio_final (total a crédito, NUNCA contado). Si la hoja aparece cortada y no se leen sus campos, no los inventes: escribe aviso.',
     '5) Caja digital o cartel con un número grande y la frase "llévalo en cuotas" o un logo de crédito (ej. "emma"): si el número dice "precio ahorro", "precio contado" o no tiene rótulo de cuota, es precio_contado. La frase "llévalo en cuotas" por sí sola NO convierte el número en cuota. Si el cartel habla de cuotas pero el número no dice si es contado o cuota, ponlo como precio_contado y escribe aviso.',
     '',
+    'Qué significa "PVP" (es la palabra más confusa):',
+    '- En una hoja de crédito, PVP* es el precio de venta de lista de la hoja: va a pvp_lista, no a precio_antes.',
+    '- En una etiqueta, "PVP" o un precio tachado junto a OFERTA o PROMO es el precio anterior: va a precio_antes.',
+    '',
     'Rótulos:',
-    '- Contado: contado, precio contado, precio ahorro, precio final (sin palabras de cuota), efectivo, oferta, precio Ganga, precio Black, o un número grande sin rótulo de crédito.',
-    '- Antes: PVP, antes, precio normal, precio de lista, o precio tachado (con raya).',
-    '- Cuota: cuota, cuotas, al mes, mensual, quincenal, semanal, x 12, a 12 meses, crédito, emma, Ganguita, desde ... al mes.',
+    '- Contado: contado, precio contado, precio ahorro, precio promo, precio ganga, precio black, oferta, efectivo, precio final (solo si no está en una hoja de crédito), o un número grande sin rótulo de crédito.',
+    '- Cuota: cuota, cuotas, al mes, mensual, quincenal, semanal, x 12, a 12 meses, crédito, emma, Ganguita, Ganguitas, desde ... al mes.',
     '- Entrada: entrada, cuota inicial, inicial, abono.',
     '- Número de cuotas: "12 cuotas", "x 12", "a 12 meses", "NO. DE CUOTAS".',
-    '- Frecuencia de la cuota: mensual si dice mes; quincenal si dice quincena; semanal si dice semana.',
+    '- Frecuencia: mensual si dice mes; quincenal si dice quincena; semanal si dice semana.',
     '- Regalo o promo: gratis, regalo, lleva, obsequio, 2x1, combo, bono.',
     '',
     'Reglas de precios (muy importante):',
-    '- Un precio que aparece solo, sin palabras de crédito, es PRECIO DE CONTADO.',
+    '- Un precio sin palabras de crédito es PRECIO DE CONTADO.',
     '- Un número unido a una palabra de crédito (cuota, Ganguita, mes, meses, x 12) es CUOTA, nunca contado.',
     '- Nunca pongas una cuota en precio_contado ni el precio de contado en cuota.',
-    '- precio_antes solo si hay PVP, antes, precio normal, de lista o precio tachado.',
-    '- Si solo se ve una cuota y no hay precio de contado, pon precio_contado null y escribe aviso: "Solo se ve la cuota: confirma si hay precio de contado".',
+    '- Si solo se ve una cuota y no hay precio de contado, precio_contado null y aviso: "Solo se ve la cuota: confirma si hay precio de contado".',
     '- Si se ve la cuota pero no el número de cuotas, num_cuotas null y aviso.',
-    '- Los precios van como número en dólares con punto decimal (250, 1299.99), sin símbolo.',
+    '- Los precios van como número con punto decimal (250, 1299.99), sin símbolo.',
+    '',
+    'Características del producto (muy importantes para comparar después):',
+    '- medidas.litros: capacidad en litros (684L → 684; 1.5 L → 1.5).',
+    '- medidas.btu: BTU tal como aparece (12BTU o 12 BTU → 12; 12000 BTU → 12000).',
+    '- medidas.pulgadas: tamaño de pantalla (43" → 43).',
+    '- medidas.kg: peso o capacidad en kg. medidas.pies3: pies cúbicos. medidas.watts: potencia.',
+    '- especificaciones: texto corto con la tecnología y tipo visibles, separados por " · ". Ej.: "Split inverter · Blanco · Frío", "SBS · Acero inoxidable · Dispensador de agua", "QLED · Smart TV · 4K".',
+    '- Usa la descripción de la caja o de la línea del modelo. Si una medida no se ve, null.',
     '',
     'Otros campos:',
     '- tienda: la cadena si se ve su nombre o logo. Opciones conocidas: ' + tiendas + '. Si no se ve, null.',
     '- codigo: el código o modelo tal como está escrito, respetando letras, números y guiones. Si no se lee, null.',
+    '- marca: la marca visible (logo o texto de la caja), por ejemplo LG, Samsung, Durama, Warienhaus.',
     '- categoria: una de: ' + cats + '.',
-    '- producto: descripción corta (tipo + marca + medida + tecnología), por ejemplo "TV Philips 43\" FHD LED Smart TV".',
+    '- producto: descripción corta (tipo + marca + medida + tecnología), por ejemplo "Split inverter 12 BTU" o "TV Philips 43\" FHD LED Smart TV".',
     '- regalo: regalo o promo que diga el cartel, o null.',
-    '- aviso: null si todo se lee claro. Si hay cualquier duda, escribe UNA frase corta en español (máximo 140 caracteres) explicando qué no quedó claro: foto cortada, reflejo, dos productos, cuota sin contado, número sin rótulo, código ilegible, etc.',
+    '- aviso: null si todo se lee claro. Si hay cualquier duda, escribe UNA frase corta en español (máximo 140 caracteres): foto cortada, reflejo, dos productos, cuota sin contado, número sin rótulo, código ilegible, etc.',
     '',
     'Responde SOLO con este JSON:',
-    '{"tienda":null,"producto":null,"marca":null,"codigo":null,"categoria":null,"precio_contado":null,"precio_antes":null,',
-    '"cuota":null,"num_cuotas":null,"frecuencia":null,"entrada":null,"plan_credito":null,"regalo":null,"aviso":null,"legible":true}'
+    '{"tienda":null,"producto":null,"marca":null,"codigo":null,"categoria":null,"especificaciones":null,',
+    '"medidas":{"litros":null,"btu":null,"pulgadas":null,"kg":null,"pies3":null,"watts":null},',
+    '"precio_contado":null,"precio_antes":null,"pvp_lista":null,"cuota":null,"num_cuotas":null,"frecuencia":null,"entrada":null,"precio_final":null,"plan_credito":null,',
+    '"regalo":null,"aviso":null,"legible":true}'
   ].join('\n');
 }
 
@@ -190,14 +200,33 @@ function probarGemini() {
 }
 
 /* ---------- lógica ---------- */
+const COLS_CAPTURAS = ['id', 'fecha', 'autor', 'agencia', 'competidor', 'origen', 'producto', 'marca', 'modelo', 'categoria',
+  'contado', 'antes', 'pvp_lista', 'cuota', 'num_cuotas', 'frecuencia', 'entrada', 'precio_final', 'plan', 'regalo',
+  'btu', 'litros', 'pulgadas', 'kg', 'pies3', 'watts', 'especificaciones', 'foto_id', 'foto', 'texto_ocr', 'editado', 'editado_por'];
+const CAMPOS_NUM_ = ['contado', 'antes', 'pvp_lista', 'cuota', 'num_cuotas', 'entrada', 'precio_final', 'btu', 'litros', 'pulgadas', 'kg', 'pies3', 'watts'];
+const CAMPOS_EDITABLES_ = ['agencia', 'competidor', 'producto', 'marca', 'modelo', 'categoria', 'contado', 'antes', 'pvp_lista', 'cuota',
+  'num_cuotas', 'frecuencia', 'entrada', 'precio_final', 'plan', 'regalo', 'btu', 'litros', 'pulgadas', 'kg', 'pies3', 'watts', 'especificaciones'];
+
+/* Las columnas se buscan por nombre en la fila 1; si falta alguna, se agrega al final. Así una hoja vieja sigue sirviendo. */
+function cabecera_(sh) {
+  let head = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(h => String(h).trim()) : [];
+  const faltan = COLS_CAPTURAS.filter(c => head.indexOf(c) < 0);
+  if (faltan.length) {
+    head = head.concat(faltan);
+    sh.getRange(1, 1, 1, head.length).setValues([head]);
+  }
+  return head;
+}
+
 function guardar_(c, fotoBase64) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_CAPTURAS);
+    const head = cabecera_(sh);
     // evitar duplicados si el teléfono reintenta
-    if (c.id) {
-      const ids = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().flat() : [];
+    if (c.id && sh.getLastRow() > 1) {
+      const ids = sh.getRange(2, head.indexOf('id') + 1, sh.getLastRow() - 1, 1).getValues().flat();
       if (ids.indexOf(c.id) > -1) return { ok: true, id: c.id, duplicado: true };
     }
     let fotoId = '', fotoUrl = '';
@@ -212,13 +241,46 @@ function guardar_(c, fotoBase64) {
         fotoUrl = f.getUrl();
       } catch (err) { /* se guarda la captura sin foto */ }
     }
-    const fecha = c.creado ? new Date(c.creado) : new Date();
-    const row = [c.id || Utilities.getUuid(), fecha, c.autor, c.agencia, c.competidor, c.origen || 'competencia', c.producto, c.marca, c.modelo, c.categoria,
-      num_(c.contado), num_(c.antes), num_(c.cuota), num_(c.ncuotas), c.frecuencia, num_(c.entrada), c.plan, c.regalo,
-      c.veredicto, c.tipo_match, c.sku_cresa, num_(c.diferencia), c.mejor_cadena, JSON.stringify(c.alternativas || []), c.en_maestro_sin_stock, fotoId, fotoUrl,
-      String(c.texto_ocr || '').slice(0, 2000)];
-    sh.appendRow(row.map(v => v === undefined || v === null ? '' : v));
-    return { ok: true, id: row[0], fotoId: fotoId };
+    const obj = {
+      id: c.id || Utilities.getUuid(), fecha: c.creado ? new Date(c.creado) : new Date(), autor: c.autor || '',
+      agencia: c.agencia || '', competidor: c.competidor || '', origen: c.origen || 'competencia',
+      producto: c.producto || '', marca: c.marca || '', modelo: c.modelo || '', categoria: c.categoria || '',
+      contado: num_(c.contado), antes: num_(c.antes), pvp_lista: num_(c.pvp_lista), cuota: num_(c.cuota), num_cuotas: num_(c.ncuotas),
+      frecuencia: c.frecuencia || '', entrada: num_(c.entrada), precio_final: num_(c.precio_final), plan: c.plan || '', regalo: c.regalo || '',
+      btu: num_(c.btu), litros: num_(c.litros), pulgadas: num_(c.pulgadas), kg: num_(c.kg), pies3: num_(c.pies3), watts: num_(c.watts),
+      especificaciones: c.especificaciones || '', foto_id: fotoId, foto: fotoUrl,
+      texto_ocr: String(c.texto_ocr || '').slice(0, 2000), editado: '', editado_por: ''
+    };
+    sh.appendRow(head.map(h => obj[h] === undefined || obj[h] === null ? '' : obj[h]));
+    return { ok: true, id: obj.id, fotoId: fotoId };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* Edita una captura. Solo quien la capturó (mismo nombre de autor) puede cambiarla. */
+function editar_(c) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_CAPTURAS);
+    const head = cabecera_(sh);
+    if (sh.getLastRow() < 2) return { ok: false, error: 'no_encontrada' };
+    const ids = sh.getRange(2, head.indexOf('id') + 1, sh.getLastRow() - 1, 1).getValues().flat().map(String);
+    const i = ids.indexOf(String(c.id || ''));
+    if (i < 0) return { ok: false, error: 'no_encontrada' };
+    const fila = i + 2;
+    const datos = sh.getRange(fila, 1, 1, head.length).getValues()[0];
+    if (String(datos[head.indexOf('autor')]) !== String(c.autor || '')) return { ok: false, error: 'no_autor' };
+    const campos = c.campos || {};
+    CAMPOS_EDITABLES_.forEach(k => {
+      if (campos[k] === undefined || head.indexOf(k) < 0) return;
+      const v = CAMPOS_NUM_.indexOf(k) > -1 ? num_(campos[k]) : String(campos[k] || '');
+      sh.getRange(fila, head.indexOf(k) + 1).setValue(v);
+    });
+    sh.getRange(fila, head.indexOf('editado') + 1).setValue(new Date());
+    sh.getRange(fila, head.indexOf('editado_por') + 1).setValue(String(c.autor || ''));
+    return { ok: true };
   } finally {
     lock.releaseLock();
   }

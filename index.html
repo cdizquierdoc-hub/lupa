@@ -52,7 +52,7 @@ main{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-lef
 
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);
   padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px));padding-top:6px;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px))}
-.tabs-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.tabs-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:4px}
 .tab{border:0;background:none;padding:6px 4px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:12px;font-weight:600}
 .tab svg{width:24px;height:24px}
 .tab[aria-current="true"]{color:var(--ink);background:var(--paper)}
@@ -145,6 +145,9 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
 .empty{text-align:center;padding:28px 12px;color:var(--muted)}
 .empty strong{display:block;color:var(--ink);font-family:var(--f-display);font-size:20px;text-transform:uppercase;margin-bottom:4px}
 @media (max-width:380px){.duel{grid-template-columns:1fr}.tag .p{font-size:34px}}
+
+.filebtn{position:relative;overflow:hidden;cursor:pointer}
+.filebtn input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;font-size:0}
 </style>
 </head>
 <body>
@@ -154,72 +157,41 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
   <span class="net" id="net" title="Conexión"></span>
 </div></header>
 <main id="app"></main>
-<p class="muted" style="text-align:center;font-size:11px;margin:0 0 calc(90px + env(safe-area-inset-bottom,0px))">LUPA v2026.11.09-8</p>
+<p class="muted" style="text-align:center;font-size:11px;margin:0 0 calc(90px + env(safe-area-inset-bottom,0px))">LUPA v2026.11.10-2</p>
 <nav class="tabs"><div class="tabs-in" id="tabs"></div></nav>
-<div id="sheet"></div>
 <div id="toastBox"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<script src="parser.js?v=2026.11.09-8"></script>
-<script src="matcher.js?v=2026.11.09-8"></script>
-<script src="config.js?v=2026.11.09-8"></script>
+<script src="parser.js?v=2026.11.10-2"></script>
+<script src="matcher.js?v=2026.11.10-2"></script>
+<script src="config.js?v=2026.11.10-2"></script>
 <script>
 /* ============ configuración (config.js) ============ */
-const VERSION="2026.11.10-1";
+const VERSION="2026.11.10-2";
 const CFG=Object.assign({
   API_URL:"https://script.google.com/macros/s/AKfycbxVPV8O8qQpirRpsYI6228qiYEihwPitAvIew0lJgE_FLygEm8mFU9wIEIA6yY4jVM0Ow/exec",
   COMPETIDORES:["Artefacta","Marcimex","Comandato","Almacenes España","Jaher","Al Precio","Tía","Pycca","La Ganga","Otro"],
   CADENAS:["Crecos","Orve Hogar","Japón","Motozone","Pagamenos"],
   AGENCIAS:[]
 },Object.fromEntries(Object.entries(window.CAZA_CONFIG||{}).filter(([k,v])=>!(k==="API_URL"&&!v))));
+CFG.AGENCIAS=[...CFG.AGENCIAS].sort((a,b)=>a.localeCompare(b,"es"));
 const CATEGORIAS=Matcher.CATS;
 const FRECUENCIAS=["mensual","quincenal","semanal"];
 const ICON={
  cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
- list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
- search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>'
+ list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>'
 };
-
-/* ============ ciudades (sin servicios externos) ============ */
-const CIUDADES=[["Guayaquil",-2.190,-79.890],["Guayaquil",-2.135,-79.905],["Guayaquil",-2.245,-79.900],["Guayaquil",-2.175,-79.960],["Guayaquil",-2.090,-79.920],["Samborondón",-2.128,-79.862],["Quito",-0.180,-78.467],["Cuenca",-2.900,-79.005],["Santo Domingo",-0.254,-79.172],["Machala",-3.258,-79.955],
- ["Durán",-2.172,-79.830],["Manta",-0.967,-80.709],["Portoviejo",-1.054,-80.454],["Loja",-3.993,-79.205],["Ambato",-1.241,-78.619],["Esmeraldas",0.968,-79.652],
- ["Quevedo",-1.022,-79.463],["Riobamba",-1.664,-78.654],["Milagro",-2.134,-79.594],["Ibarra",0.350,-78.122],["Babahoyo",-1.801,-79.534],["La Libertad",-2.233,-80.910],
- ["Salinas",-2.214,-80.958],["Santa Elena",-2.227,-80.858],["Latacunga",-0.934,-78.615],["Daule",-1.861,-79.977],["Chone",-0.698,-80.094],["El Carmen",-0.267,-79.456],
- ["Pasaje",-3.327,-79.807],["Huaquillas",-3.476,-80.231],["Santa Rosa",-3.449,-79.960],["Tulcán",0.812,-77.717],["Nueva Loja",0.085,-76.894],["Puyo",-1.483,-78.003],
- ["Tena",-0.993,-77.813],["Azogues",-2.739,-78.846],["Otavalo",0.234,-78.262],["Sangolquí",-0.313,-78.447],["Cayambe",0.041,-78.146],["La Troncal",-2.423,-79.339],
- ["Naranjal",-2.674,-79.617],["Playas",-2.632,-80.389],["El Empalme",-1.044,-79.636],["Balzar",-1.364,-79.906],["Vinces",-1.555,-79.752],["Ventanas",-1.444,-79.459],
- ["Jipijapa",-1.348,-80.578],["Montecristi",-1.046,-80.659],["Bahía de Caráquez",-0.598,-80.425],["Macas",-2.309,-78.118],["Zamora",-4.069,-78.957],["Yaguachi",-2.120,-79.693],
- ["El Triunfo",-2.333,-79.389],["Puerto López",-1.559,-80.811],["Atacames",0.866,-79.849],["Quinindé",0.328,-79.471],["Buena Fe",-0.892,-79.490],["La Concordia",-0.006,-79.393]];
-const CIUDADES_ORDEN=[...new Set(CIUDADES.map(c=>c[0]))].sort((a,b)=>a.localeCompare(b,"es"));
-function distKm(a,b,c,d){const R=6371,t=x=>x*Math.PI/180;const h=Math.sin(t(c-a)/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(t(d-b)/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
-function ciudadCercana(lat,lon){let best=null,bd=1e9;for(const [n,la,lo] of CIUDADES){const d=distKm(lat,lon,la,lo);if(d<bd){bd=d;best=n;}}return bd<=45?best:"";}
-function ubicar(){
-  return new Promise(res=>{
-    if(!navigator.geolocation)return res(null);
-    navigator.geolocation.getCurrentPosition(p=>{const c=ciudadCercana(p.coords.latitude,p.coords.longitude);res(c||null);},()=>res(null),{enableHighAccuracy:false,timeout:9000,maximumAge:600000});
-  });
-}
-async function actualizarCiudad(forzar){
-  if(S.ciudadManual&&!forzar)return;
-  const c=await ubicar();
-  if(c){S.ciudad=c;S.ciudadManual=false;ls.set("ch_ciudad",{c,m:false});const el=$("#ciudadTxt");if(el)el.textContent=c;}
-  else if(!S.ciudad){S.ciudadPend=true;if(S.tab==="capturar"&&S.flow==="idle")render();}
-}
 
 /* ============ estado ============ */
 const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch{return false}}};
-const S={tab:"capturar",flow:"idle",photo:null,photoUrl:"",draft:null,result:null,ocrPct:0,ocrMsg:"",
-  catalog:[],bySku:new Map(),caps:ls.get("ch_caps",[]),capsLoaded:false,catUpdated:ls.get("ch_cat_t",0),
-  feedFilter:"Todas",feedQ:"",searchQ:"",
-  perfil:ls.get("ch_perfil",null),tienda:ls.get("ch_tienda","Artefacta"),online:navigator.onLine};
-{const c=ls.get("ch_ciudad",null);S.ciudad=c?.c||"";S.ciudadManual=!!c?.m;}
-
+const S={tab:"capturar",flow:"idle",cola:[],total:0,hecha:0,photoUrl:"",photo:null,draft:null,ocrPct:0,ocrMsg:"",iaError:"",iaDetalle:"",
+  editing:null,mis:ls.get("ch_mis",[]),perfil:ls.get("ch_perfil",null),tienda:ls.get("ch_tienda","Artefacta"),
+  agencia:ls.get("ch_agencia",""),online:navigator.onLine,misMsg:""};
 
 /* ============ utilidades ============ */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const norm=CazaParser.norm;
-const compact=s=>norm(s).replace(/[^a-z0-9]/g,"");
 function money(v){
   if(v==null||v==="")return null; if(typeof v==="number")return isFinite(v)?v:null;
   let s=String(v).replace(/[^\d.,-]/g,""); if(!s)return null;
@@ -230,13 +202,12 @@ function money(v){
   const n=parseFloat(s); return isFinite(n)?n:null;
 }
 const fmt=n=>n==null||n===""?"—":"$"+Number(n).toLocaleString("es-EC",{minimumFractionDigits:Number(n)%1?2:0,maximumFractionDigits:2});
-function priceHTML(n){if(n==null||n==="")return "—";const [a,b]=Number(n).toFixed(2).split(".");return `<small>$</small>${Number(a).toLocaleString("es-EC")}${b!=="00"?`<small>.${b}</small>`:""}`;}
-const cuotaTxt=o=>o&&money(o.cuota)?`${money(o.ncuotas)?money(o.ncuotas)+" × ":""}${fmt(money(o.cuota))}${o.frecuencia?" "+o.frecuencia:""}`:"";
 const ago=t=>{const m=Math.round((Date.now()-t)/60000);if(m<1)return "ahora";if(m<60)return `hace ${m} min`;const h=Math.round(m/60);if(h<24)return `hace ${h} h`;return new Date(t).toLocaleDateString("es-EC",{day:"numeric",month:"short"});};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const isCresa=t=>CFG.CADENAS.includes(t);
+const queue=()=>ls.get("ch_queue",[]);
 function toast(msg,ms=2800){const b=$("#toastBox");b.innerHTML=`<div class="toast" role="status">${esc(msg)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>b.innerHTML="",ms);}
-async function copy(text){try{await navigator.clipboard.writeText(text);toast("Copiado");}catch{toast("Mantén presionado el texto para copiarlo");}}
-const toMonthly=(c,f)=>c==null?null:f==="semanal"?c*52/12:f==="quincenal"?c*2:c;
+function thumbSrc(c){return c&&c.foto_id?`https://drive.google.com/thumbnail?id=${encodeURIComponent(c.foto_id)}&sz=w480`:"";}
 
 /* ============ API (Google Apps Script) ============ */
 async function apiGet(action,extra=""){
@@ -248,264 +219,8 @@ async function apiPost(body){
   const j=await r.json(); if(!j.ok)throw new Error(j.error||"error"); return j;
 }
 
-/* ============ maestro de códigos (PILAS) ============ */
-// Todos los códigos de Cresa con marca, capacidad, tipo y grupo. Sirve para CLASIFICAR y para completar
-// el catálogo; nunca se ofrece al cliente porque la mayoría no tiene stock.
-const MAESTRO={lista:[],porCodigo:new Map(),marcas:[],listo:false,vendidos:[]};
-function parseTSV(txt){const out=[];for(const ln of txt.split("\n").slice(1)){if(!ln)continue;const [cod,desc,marca,cap,sub,linea,grupo]=ln.split("\t");if(cod)out.push({cod,modelo:cod,desc:desc||"",marca:marca||"",cap:cap||"",sub:sub||"",linea:linea||"",grupo:grupo||""});}return out;}
-async function loadMaestro(){
-  try{
-    const [rm,rv]=await Promise.all([fetch("maestro.tsv?v=2026.11.09-8"),fetch("vendidos.tsv?v=2026.11.09-8").catch(()=>null)]);
-    if(!rm.ok)throw 0;
-    const marcas=new Set();
-    const mete=row=>{const k=compact(row.cod);if(MAESTRO.porCodigo.has(k))return MAESTRO.porCodigo.get(k);MAESTRO.lista.push(row);MAESTRO.porCodigo.set(k,row);if(row.marca&&row.marca.length>2)marcas.add(row.marca);return row;};
-    const vend=rv&&rv.ok?parseTSV(await rv.text()):[];
-    MAESTRO.vendidos=vend.map(mete);
-    parseTSV(await rm.text()).forEach(mete);
-    MAESTRO.marcas=[...marcas];MAESTRO.listo=true;
-    // perfiles en segundo plano para que la primera comparación sea rápida
-    let i=0;const step=()=>{const end=Math.min(MAESTRO.lista.length,i+800);for(;i<end;i++){const p=MAESTRO.lista[i];p._prof=Matcher.profile(p);}if(i<MAESTRO.lista.length)setTimeout(step,0);};step();
-    rebuildCatalog(S.catRows||[]);
-    if(S.flow==="idle"||S.flow==="result")render();
-  }catch{MAESTRO.listo=false;}
-}
-function maestroDe(codigo){const k=compact(codigo);if(!k)return null;return MAESTRO.porCodigo.get(k)||null;}
+/* ============ lectura de la foto ============ */
 
-/* ============ catálogo Black (lo que sí vendemos) ============ */
-const ALIAS_CAT={sku:"codigo",cod:"codigo",modelo:"codigo",codigo_cresa:"codigo",item:"codigo",descripcion:"nombre",producto:"nombre",linea:"categoria",precio:"precio_contado",contado:"precio_contado",pvp:"precio_normal",antes:"precio_normal",valor_cuota:"cuota",cuotas:"num_cuotas",plazo:"num_cuotas",plan:"plan_credito",credito:"plan_credito",existencia:"stock",inventario:"stock",unidades:"stock"};
-function normRow(r){const o={};for(const [k,v] of Object.entries(r)){const kk=norm(k).replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"");o[ALIAS_CAT[kk]||kk]=v;}return o;}
-function sinStock(v){if(v==null||String(v).trim()==="")return false;const n=norm(v).trim();if(/^(no|agotado|sin stock|0+([.,]0+)?)$/.test(n))return true;const x=money(v);return x!=null&&x<=0;}
-function prettyName(m){
-  const g=(m.grupo||"").toLowerCase(),sub=(m.sub||"").toLowerCase(),cap=m.cap||"";
-  const base=/celulares|telefonia/.test(g)?"celular":g.replace(/(as|os)$/,a=>a[0]).replace(/(es)$/,"").replace(/s$/,"");
-  const marca=(m.marca||"").length<=3?m.marca:(m.marca||"").charAt(0).toUpperCase()+(m.marca||"").slice(1).toLowerCase();
-  const seen=new Set(),out=[];
-  for(const w of [base,sub,marca,cap].join(" ").split(/\s+/)){const k=norm(w);if(!k)continue;if(seen.has(k)&&!/^[\d.,-]+$/.test(k))continue;seen.add(k);out.push(w);}
-  const t=out.join(" ");return t.charAt(0).toUpperCase()+t.slice(1);
-}
-function finGrupo(g){
-  g.cadenas.sort((a,b)=>(CFG.CADENAS.indexOf(a.cadena)+99)%99-(CFG.CADENAS.indexOf(b.cadena)+99)%99);
-  const ps=g.cadenas.map(c=>c.contado).filter(v=>v!=null);g.min=ps.length?Math.min(...ps):null;
-  const cs=g.cadenas.filter(c=>c.cuota!=null).map(c=>toMonthly(c.cuota,c.frecuencia));g.minCuotaMes=cs.length?Math.min(...cs):null;
-  g.best=g.cadenas.filter(c=>c.contado!=null).sort((a,b)=>a.contado-b.contado)[0]||g.cadenas[0]||null;
-  g.sinPrecio=!g.cadenas.length;
-  g._prof=Matcher.profile(g);g.categoria=g._prof.cat||g.categoria;
-  g.key=norm([g.nombre,g.marca,g.modelo,g.categoria,g.sku,g.sub,g.cap].join(" "));
-  return g;
-}
-function grupoDesdeMaestro(v){return {sku:v.cod,modelo:v.cod,nombre:prettyName(v),marca:v.marca,categoria:"",cap:v.cap,sub:v.sub,linea:v.linea,grupo:v.grupo,desc:v.desc,enMaestro:true,cadenas:[]};}
-function rebuildCatalog(rows){
-  S.catRows=rows;
-  const m=new Map();let sinSt=0;const sinStockSet=new Set();
-  for(const r0 of rows){
-    const r=normRow(r0);const k=String(r.codigo||"").trim();if(!k)continue;
-    if(sinStock(r.stock)){sinSt++;sinStockSet.add(compact(k));continue;}
-    const ms=maestroDe(k);
-    if(!m.has(k))m.set(k,{sku:k,modelo:k,nombre:r.nombre||(ms?prettyName(ms):k),marca:r.marca||ms?.marca||"",categoria:r.categoria||"",
-      cap:ms?.cap||"",sub:ms?.sub||"",linea:ms?.linea||"",grupo:ms?.grupo||"",desc:ms?.desc||"",enMaestro:!!ms,cadenas:[]});
-    const g=m.get(k);
-    g.cadenas.push({cadena:r.cadena||"",contado:money(r.precio_contado),normal:money(r.precio_normal),cuota:money(r.cuota),ncuotas:money(r.num_cuotas),frecuencia:norm(r.frecuencia||""),entrada:money(r.entrada),plan:r.plan_credito||"",promo:r.promo||"",stock:money(r.stock)});
-  }
-  // precios que el equipo fotografió en nuestras cadenas (el más reciente por código y cadena)
-  const fotos=new Map();
-  for(const c of S.caps||[]){if(c.origen!=="cresa"||!c.sku_cresa)continue;const k=c.sku_cresa+"|"+c.competidor;const t=c.creado||0;if(!fotos.has(k)||t>(fotos.get(k).creado||0))fotos.set(k,c);}
-  for(const c of fotos.values()){
-    const k=String(c.sku_cresa);if(sinStockSet.has(compact(k)))continue;
-    let g=m.get(k);
-    if(!g){const ms=maestroDe(k);g=ms?grupoDesdeMaestro(ms):{sku:k,modelo:k,nombre:c.producto||k,marca:c.marca||"",categoria:c.categoria||"",cadenas:[]};g.cadenas=[];m.set(k,g);}
-    if(g.cadenas.some(x=>x.cadena===c.competidor&&x.fuente!=="foto"))continue;
-    g.cadenas=g.cadenas.filter(x=>x.cadena!==c.competidor);
-    g.cadenas.push({cadena:c.competidor,contado:money(c.contado),normal:money(c.normal??c.antes),cuota:money(c.cuota),ncuotas:money(c.ncuotas??c.num_cuotas),frecuencia:norm(c.frecuencia||""),entrada:money(c.entrada),plan:c.plan||"",promo:c.regalo||"",fuente:"foto",fecha:c.creado});
-  }
-  for(const g of m.values())finGrupo(g);
-  S.conPrecio=m.size;
-  for(const v of MAESTRO.vendidos){
-    if(m.has(v.cod)||sinStockSet.has(compact(v.cod)))continue;
-    const g={sku:v.cod,modelo:v.cod,nombre:prettyName(v),marca:v.marca,categoria:"",cap:v.cap,sub:v.sub,linea:v.linea,grupo:v.grupo,desc:v.desc,
-      enMaestro:true,vendido:true,sinPrecio:true,cadenas:[],min:null,minCuotaMes:null,best:null};
-    g._prof=Matcher.profile(g);g.categoria=g._prof.cat;g.key=norm([g.nombre,g.marca,g.modelo,g.categoria,g.sub,g.cap].join(" "));
-    m.set(v.cod,g);
-  }
-  S.bySku=m;S.catalog=[...m.values()];S.sinStock=sinSt;
-}
-async function loadCatalog(force){
-  const cached=ls.get("ch_cat",null);
-  if(cached&&!S.catalog.length)rebuildCatalog(cached);
-  if(!CFG.API_URL||!S.perfil)return;
-  if(!force&&cached&&Date.now()-S.catUpdated<10*60000)return;
-  try{const j=await apiGet("catalogo");rebuildCatalog(j.rows);S.catUpdated=Date.now();
-    if(!ls.set("ch_cat",j.rows))toast("Catálogo muy grande para guardar sin señal");ls.set("ch_cat_t",S.catUpdated);
-    if(force)toast(`Catálogo actualizado: ${S.catalog.length} productos`);
-  }catch(e){if(e.message==="pin"){S.perfil.pin="";ls.set("ch_perfil",S.perfil);toast("PIN incorrecto");}else if(force)toast("No se pudo actualizar el catálogo");}
-  if(S.flow==="idle"||S.flow==="result")render();
-}
-
-/* ============ comparación por descripción ============ */
-// 1) Perfil del producto de la competencia (categoría, tipo, medida, marca, texto).
-// 2) Si el maestro conoce ese modelo, se toma su ficha para clasificar mejor.
-// 3) Se busca entre lo que SÍ vendemos: mismo modelo → equivalente → lo más parecido.
-function perfilCompetencia(cap){
-  const base={producto:cap.producto,marca:cap.marca,modelo:cap.modelo,categoria:cap.categoria};
-  let q=Matcher.profile(base),enMaestro=null,catSugerida="";
-  if(MAESTRO.listo){
-    const c=Matcher.clasificar(q,MAESTRO.lista,7);
-    if(c){catSugerida=c.cat;const top=c.top[0];
-      if(top&&top.det.codigo>=800)enMaestro=top.p;
-      if(enMaestro){q=Matcher.profile({...base,cap:enMaestro.cap,sub:enMaestro.sub,linea:enMaestro.linea,grupo:enMaestro.grupo,desc:enMaestro.desc,categoria:cap.categoria||""});}
-      if(!q.cat&&catSugerida){q=Matcher.profile({...base,categoria:catSugerida,cap:enMaestro?.cap,sub:enMaestro?.sub});}
-    }
-  }
-  return {q,enMaestro,catSugerida};
-}
-function compare(cap){
-  const {q,enMaestro}=perfilCompetencia(cap);
-  const ranked=Matcher.rank(q,S.catalog,80).map(x=>({...x,s:x.s+(x.p.min!=null?15:0)})).sort((a,b)=>b.s-a.s);
-  // el mejor nivel gana (mismo modelo > equivalente > parecido); a igual nivel, el que tiene precio Black
-  let match=null,matchTipo=null;
-  const NIV={mismo_modelo:3,equivalente:2,parecido:1};
-  const cands=ranked.slice(0,25).map(x=>({x,n:Matcher.nivel(q,x)})).filter(c=>c.n);
-  cands.sort((a,b)=>(NIV[b.n]-NIV[a.n])||((b.x.p.min!=null)-(a.x.p.min!=null))||(b.x.s-a.x.s));
-  if(cands[0]){match=cands[0].x.p;matchTipo=cands[0].n;}
-  const cat=q.cat||match?._prof.cat||"";
-  const pool=ranked.filter(x=>x.p!==match&&x.p.min!=null&&(!cat||x.p._prof.cat===cat)&&!x.det.conflictos);
-  const ref=cap.contado??match?.min;
-  const refCuota=toMonthly(cap.cuota,cap.frecuencia);
-  const alts=[];const used=new Set();
-  const nombres=new Set(match?[norm(match.nombre)]:[]);
-  const add=(g,tipo,razon)=>{if(!g||used.has(g.sku)||alts.length>=3)return;const nk=norm(g.nombre);if(g.sinPrecio&&nombres.has(nk))return;used.add(g.sku);nombres.add(nk);alts.push({sku:g.sku,tipo,razon});};
-  const UN={pulg:"pulgadas",lt:"litros",kg:"kg",btu:"BTU",quem:"quemadores",plazas:"plazas",cc:"cc",gb:"GB",ram:"GB de RAM"};
-  const medTxt=g=>{const u=g?._prof?.med;return u;};
-  const parecido=x=>{const d=x.det;if(d.dMedida==null)return "Parecido";if(d.dMedida<=0.08)return "Misma medida";
-    const pm=x.p._prof.med[d.unidad],v=pm?Math.round((pm.lo+pm.hi)/2):null,u=UN[d.unidad]||"";
-    const lado=d.medDir<0?"Más pequeño":"Más grande";return v&&d.unidad!=="lt"?`${lado} (${v} ${u})`:lado;};
-  if(ref!=null){
-    const cheaper=pool.filter(x=>x.p.min<ref-0.5)[0];
-    if(cheaper)add(cheaper.p,"mas_barato",`${parecido(cheaper)}, ${fmt(Math.round((ref-cheaper.p.min)*100)/100)} menos que ${cap.competidor}.`);
-  }
-  const credit=pool.filter(x=>x.p.minCuotaMes!=null&&(refCuota==null||x.p.minCuotaMes<refCuota-0.5)).sort((a,b)=>(b.s-a.s)-(a.p.minCuotaMes-b.p.minCuotaMes)*0.5)[0];
-  if(ref!=null&&!alts.some(a=>a.tipo==="mas_barato")){
-    const otro=ranked.filter(x=>x.p!==match&&x.p.min!=null&&x.p.min<ref-0.5&&(!cat||x.p._prof.cat===cat)&&x.det.conflictos)[0];
-    if(otro)add(otro.p,"mas_barato",`Otro tipo pero más económico: ${fmt(Math.round((ref-otro.p.min)*100)/100)} menos.`);
-  }
-  if(credit){const c=credit.p.cadenas.filter(x=>x.cuota!=null).sort((a,b)=>toMonthly(a.cuota,a.frecuencia)-toMonthly(b.cuota,b.frecuencia))[0];
-    add(credit.p,"mejor_credito",`Cuota de ${cuotaTxt(c)}${refCuota!=null?`, menos que la de ${cap.competidor}`:""}${c.entrada===0?", sin entrada":""}.`);}
-  if(ref!=null){
-    const promo=pool.filter(x=>x.p.cadenas.some(c=>c.promo)&&x.p.min<=ref*1.15)[0];
-    if(promo){const c=promo.p.cadenas.find(c=>c.promo);add(promo.p,"mejor_promo",`${c.promo}${promo.p.min>ref?` por solo ${fmt(Math.round((promo.p.min-ref)*100)/100)} más`:""}.`);}
-    const sup=pool.filter(x=>x.p.min>ref&&x.p.min<=ref*1.15)[0];
-    if(sup)add(sup.p,"superior",`${parecido(sup)} por ${fmt(Math.round((sup.p.min-ref)*100)/100)} más.`);
-  }
-  if(match&&match.min==null){const cp=pool.find(x=>x.p.min!=null);if(cp)add(cp.p,"similar",`${parecido(cp)}, con precio Black cargado.`);}
-  const sinP=ranked.filter(x=>x.p!==match&&x.p.sinPrecio&&(!cat||x.p._prof.cat===cat)&&!x.det.conflictos);
-  for(const x of sinP){if(alts.length>=3)break;add(x.p,"similar",`${parecido(x)}. Se vendió este mes: confirma precio en el sistema.`);}
-  let veredicto="sin_match",diff=null,mejorCadena=null;
-  if(match){
-    const b=match.best;mejorCadena=b?.cadena||null;
-    if(cap.contado!=null&&b?.contado!=null){diff=Math.round((b.contado-cap.contado)*100)/100;veredicto=diff<=-1?"nosotros":diff<1?"igual":"ellos";}
-    else if(refCuota!=null&&match.minCuotaMes!=null){veredicto=match.minCuotaMes<refCuota-0.5?"nosotros":match.minCuotaMes>refCuota+0.5?"ellos":"igual";}
-    else veredicto="sin_precio";
-  }
-  const cmp={sinPrecio:!!match?.sinPrecio,matchSku:match?.sku||null,matchTipo,veredicto,diff,mejorCadena,alternativas:alts,categoria:cat,
-    enMaestro:enMaestro&&!(match&&matchTipo==="mismo_modelo")?enMaestro.cod:null};
-  cmp.notaCredito=creditNote(cap,match);
-  cmp.argumento=speech(cap,match,cmp);
-  return cmp;
-}
-const esCresa=t=>CFG.CADENAS.includes(t);
-const plazoTxt=o=>o&&money(o.ncuotas)?`${money(o.ncuotas)} ${({semanal:"semanas",quincenal:"quincenas"})[o.frecuencia]||"meses"}`:"";
-function perfilCaptura(c){if(!c._p)c._p=Matcher.profile({producto:c.producto,marca:c.marca,modelo:c.modelo,categoria:c.categoria});return c._p;}
-function identificarNuestro(f){
-  const k=compact(f.modelo);
-  if(k){for(const g of S.catalog)if(compact(g.sku)===k)return {g,como:"codigo"};
-    const ms=maestroDe(f.modelo);if(ms)return {g:finGrupo(grupoDesdeMaestro(ms)),como:"codigo"};}
-  const q=Matcher.profile({producto:f.producto,marca:f.marca,modelo:f.modelo,categoria:f.categoria});
-  const top=Matcher.rank(q,S.catalog,10).find(x=>{const n=Matcher.nivel(q,x);return n==="mismo_modelo"||n==="equivalente";});
-  if(top)return {g:top.p,como:Matcher.nivel(q,top)};
-  if(MAESTRO.listo){const t=Matcher.rank(q,MAESTRO.lista,3)[0];if(t&&t.det.codigo>=800)return {g:finGrupo(grupoDesdeMaestro(t.p)),como:"codigo"};}
-  return {g:finGrupo({sku:"",modelo:f.modelo,nombre:f.producto||f.modelo,marca:f.marca,categoria:f.categoria,cadenas:[]}),como:"nuevo"};
-}
-function vsCompetencia(g,ours){
-  const q=g._prof||Matcher.profile(g);const NIV={mismo_modelo:3,equivalente:2,parecido:1};
-  const porComp=new Map();
-  for(const c0 of S.caps){
-    if(c0.origen==="cresa")continue;const c=capFromRow(c0);if(c.contado==null&&c.cuota==null)continue;
-    const cp=perfilCaptura(c0);const r=Matcher.score(q,cp);const hit={p:{_prof:cp},det:r.det,s:r.s};
-    let n=Matcher.nivel(q,hit);if(!n)continue;
-    if(n==="parecido"&&(r.det.conflictos||!q.cat||cp.cat!==q.cat||(r.det.dMedida!=null&&r.det.dMedida>0.2)||r.s<80))continue;
-    const prev=porComp.get(c.competidor);
-    const misma=x=>(x.ciudad||x.agencia)&&ours?.ciudad&&(x.ciudad||x.agencia)===ours.ciudad?1:0;
-    if(!prev||NIV[n]>NIV[prev.nivel]||(NIV[n]===NIV[prev.nivel]&&(misma(c)>misma(prev.c)||(misma(c)===misma(prev.c)&&(c.creado||0)>(prev.c.creado||0)))))porComp.set(c.competidor,{c,nivel:n,det:r.det});
-  }
-  const oc=money(ours?.contado),om=toMonthly(money(ours?.cuota),ours?.frecuencia);
-  const rows=[...porComp.values()].map(x=>{const c=x.c;
-    x.dContado=oc!=null&&c.contado!=null?Math.round((oc-c.contado)*100)/100:null;
-    const tm=toMonthly(c.cuota,c.frecuencia);x.dCuotaMes=om!=null&&tm!=null?Math.round((om-tm)*100)/100:null;
-    const tE=c.cuota&&c.ncuotas?c.cuota*c.ncuotas+(c.entrada||0):null,tN=ours?.cuota&&ours?.ncuotas?money(ours.cuota)*money(ours.ncuotas)+(money(ours.entrada)||0):null;
-    x.dTotal=tE&&tN?Math.round(tN-tE):null;return x;})
-    .sort((a,b)=>(NIV[b.nivel]-NIV[a.nivel])||((a.c.contado??1e9)-(b.c.contado??1e9)));
-  const conP=rows.filter(r=>r.dContado!=null);
-  let veredicto="sin_comp",diff=null,rival=null;
-  if(conP.length){const cheapest=conP.slice().sort((a,b)=>a.c.contado-b.c.contado)[0];rival=cheapest.c;diff=cheapest.dContado;
-    veredicto=diff<=-1?"nosotros":diff<1?"igual":"ellos";}
-  else{const conC=rows.filter(r=>r.dCuotaMes!=null);if(conC.length){const m=conC.slice().sort((a,b)=>a.dCuotaMes-b.dCuotaMes).pop();rival=m.c;veredicto=m.dCuotaMes<=-0.5?"nosotros":m.dCuotaMes<0.5?"igual":"ellos";}}
-  const gana=conP.filter(r=>r.dContado<=-1).length;
-  // alternativas nuestras si alguien está más barato
-  const alts=[];
-  if(veredicto==="ellos"||veredicto==="igual"){
-    const ref=rival?.contado??oc;const refC=rows.map(r=>toMonthly(r.c.cuota,r.c.frecuencia)).filter(v=>v!=null);const minC=refC.length?Math.min(...refC):null;
-    const pool=Matcher.rank(q,S.catalog,60).filter(x=>x.p!==g&&x.p.sku!==g.sku&&x.p.min!=null&&(!q.cat||x.p._prof.cat===q.cat))
-      .sort((a,b)=>(!!a.det.conflictos-!!b.det.conflictos)||(b.s-a.s));
-    const tipoTxt=x=>x.det.conflictos?` (otro tipo: ${Object.values(x.p._prof.tipos).join(", ").toUpperCase()||"distinto"})`:"";
-    const add=(p,tipo,razon)=>{if(alts.length<3&&!alts.some(a=>a.sku===p.sku))alts.push({sku:p.sku,tipo,razon});};
-    const ch=ref!=null&&pool.find(x=>x.p.min<ref-0.5);if(ch)add(ch.p,"mas_barato",`${fmt(Math.round((ref-ch.p.min)*100)/100)} menos que ${rival?.competidor||"la competencia"}${tipoTxt(ch)}.`);
-    const cr=pool.filter(x=>x.p.minCuotaMes!=null&&(minC==null||x.p.minCuotaMes<minC-0.5))[0];
-    if(cr){const c=cr.p.cadenas.filter(x=>x.cuota!=null).sort((a,b)=>toMonthly(a.cuota,a.frecuencia)-toMonthly(b.cuota,b.frecuencia))[0];add(cr.p,"mejor_credito",`Cuota de ${cuotaTxt(c)}${c.entrada===0?", sin entrada":""}.`);}
-    const pr=ref!=null&&pool.find(x=>x.p.cadenas.some(c=>c.promo)&&x.p.min<=ref*1.15);if(pr){const c=pr.p.cadenas.find(c=>c.promo);add(pr.p,"mejor_promo",`${c.promo}.`);}
-  }
-  // texto para el cliente
-  let arg="";
-  if(rival&&ours){
-    const r=rows.find(x=>x.c===rival);
-    if(veredicto==="nosotros"&&diff!=null)arg=`En ${rival.competidor} este producto está a ${fmt(rival.contado)}. Aquí en ${ours.cadena} lo lleva a ${fmt(oc)}: se ahorra ${fmt(Math.abs(diff))}.`;
-    else if(veredicto==="nosotros")arg=`Con nosotros la cuota es ${cuotaTxt(ours)}, menos que en ${rival.competidor} (${cuotaTxt(rival)}).`;
-    else if(veredicto==="igual")arg=`Tenemos el mismo precio que ${rival.competidor}, ${fmt(oc)}.`;
-    else {arg=`Sé que en ${rival.competidor} lo vio a ${fmt(rival.contado)}.`;}
-    if(veredicto!=="nosotros"){
-      if(r&&r.dCuotaMes!=null&&r.dCuotaMes<-0.5)arg+=` Pero con nosotros la cuota es ${cuotaTxt(ours)} frente a ${cuotaTxt(rival)}${ours.entrada===0||money(ours.entrada)===0?", sin entrada":""}.`;
-      const a=alts[0]&&S.bySku.get(alts[0].sku);if(a)arg+=` Le puedo ofrecer ${a.nombre} a ${fmt(a.best?.contado)} en ${a.best?.cadena}.`;
-      if(ours.promo&&/gratis|regalo|lleva|obsequio|%|descuento|combo|2x1/i.test(ours.promo))arg+=` Además, ${ours.promo.charAt(0).toLowerCase()+ours.promo.slice(1)}.`;
-      if(!a&&!(r&&r.dCuotaMes!=null&&r.dCuotaMes<-0.5)&&money(ours.cuota))arg+=` Con nosotros lo lleva a crédito directo: ${cuotaTxt(ours)}${money(ours.entrada)===0?", sin entrada":""}.`;
-    }
-  }
-  return {rows,veredicto,diff,rival,gana,total:conP.length,alts,argumento:arg};
-}
-function creditNote(cap,match){
-  if(!match||cap.cuota==null)return "";
-  const c=match.cadenas.filter(x=>x.cuota!=null).sort((a,b)=>toMonthly(a.cuota,a.frecuencia)-toMonthly(b.cuota,b.frecuencia))[0];
-  if(!c)return "";
-  const tE=cap.ncuotas?cap.cuota*cap.ncuotas+(cap.entrada||0):null, tN=c.ncuotas?c.cuota*c.ncuotas+(c.entrada||0):null;
-  const mE=toMonthly(cap.cuota,cap.frecuencia),mN=toMonthly(c.cuota,c.frecuencia);
-  let s=`${cap.competidor}: ${cuotaTxt(cap)}. ${c.cadena}: ${cuotaTxt(c)}.`;
-  if(tE&&tN)s+=` Total a crédito: ${fmt(Math.round(tE))} vs ${fmt(Math.round(tN))} nuestro.`;
-  else if(mE&&mN&&cap.frecuencia!==c.frecuencia)s+=` Al mes: ${fmt(Math.round(mE))} vs ${fmt(Math.round(mN))}.`;
-  return s;
-}
-function speech(cap,match,cmp){
-  const alt=cmp.alternativas[0]?S.bySku.get(cmp.alternativas[0].sku):null;
-  const credit=g=>{const c=g?.cadenas.filter(x=>x.cuota!=null).sort((a,b)=>toMonthly(a.cuota,a.frecuencia)-toMonthly(b.cuota,b.frecuencia))[0];return c?` Y si prefiere a crédito, son ${cuotaTxt(c)}${c.entrada===0?" sin entrada":""}.`:"";};
-  const promo=g=>{const c=g?.cadenas.find(x=>x.promo);return c?` Además, ${c.promo.charAt(0).toLowerCase()+c.promo.slice(1)}.`:"";};
-  const b=match?.best;
-  const que=!match?"":cmp.matchTipo==="mismo_modelo"?"Ese mismo modelo":cmp.matchTipo==="equivalente"?`Un equivalente, ${match.nombre},`:`Algo muy parecido, ${match.nombre},`;
-  if(cmp.veredicto==="sin_precio"&&match)return `${que.replace(/,$/,"")} también lo tenemos en Cresa.${alt&&!alt.sinPrecio?(alt.best?.contado<(cap.contado??Infinity)?` Y si busca algo más económico, ${alt.nombre} está a ${fmt(alt.best?.contado)} en ${alt.best?.cadena}.`:` También tenemos ${alt.nombre} a ${fmt(alt.best?.contado)} en ${alt.best?.cadena}.`):""}`;
-  if(cmp.veredicto==="nosotros"&&b)return `${que} se lo dejamos en ${b.cadena} a ${fmt(b.contado)} de contado, ${fmt(Math.abs(cmp.diff))} menos que en ${cap.competidor}.${credit(match)}${promo(match)}`;
-  if(cmp.veredicto==="igual"&&b)return `Tenemos el mismo precio, ${fmt(b.contado)}, pero con nosotros sale mejor:${credit(match)||" tiene la garantía y el servicio de "+b.cadena+"."}${promo(match)}`;
-  if(cmp.veredicto==="ellos"&&alt){const a=alt.best;return `${que} lo tenemos a ${fmt(b?.contado)}, pero le recomiendo esta opción: ${alt.nombre}, a ${fmt(a?.contado)} en ${a?.cadena}. ${cmp.alternativas[0].razon}${credit(alt)}`;}
-  if(cmp.veredicto==="ellos"&&b)return `${que} lo tenemos a ${fmt(b.contado)} en ${b.cadena}.${credit(match)||" Y con nosotros lo puede llevar con crédito directo."}${promo(match)}`;
-  if(alt){const a=alt.best;return `Ese modelo no lo manejamos, pero le tengo esta opción: ${alt.nombre}, a ${fmt(a?.contado)} en ${a?.cadena}. ${cmp.alternativas[0].razon}${credit(alt)}`;}
-  return "";
-}
-
-/* ============ OCR en el teléfono ============ */
 let worker=null;
 async function getWorker(){
   if(worker)return worker;
@@ -557,412 +272,341 @@ function tiendaDetectada(txt){
   if(!txt)return null;const n=norm(txt);
   return CFG.CADENAS.concat(CFG.COMPETIDORES).find(t=>t!=="Otro"&&(n.includes(norm(t))||norm(t).includes(n)))||null;
 }
+
+/* Sin IA o sin señal: lectura básica dentro del teléfono (no entiende letra a mano). */
 function draftDesdeIA(d){
   const num=v=>{const x=money(v);return x!=null&&x>0?x:null;};
+  const m=d.medidas||{};
   const out={producto:d.producto||"",marca:d.marca||"",modelo:(d.codigo||"").toUpperCase(),
     categoria:CATEGORIAS.includes(d.categoria)?d.categoria:(Matcher.catFromText([d.categoria,d.producto].join(" "))||""),
-    contado:num(d.precio_contado),normal:num(d.precio_antes),cuota:num(d.cuota),ncuotas:num(d.num_cuotas),
-    frecuencia:FRECUENCIAS.includes(norm(d.frecuencia||""))?norm(d.frecuencia):"",entrada:d.entrada===0||d.entrada==="0"?0:num(d.entrada),
-    plan:d.plan_credito||"",regalo:d.regalo||"",legible:d.legible!==false,_leido:true,_ia:true,_aviso:d.aviso||""};
+    contado:num(d.precio_contado),antes:num(d.precio_antes),pvp_lista:num(d.pvp_lista),
+    cuota:num(d.cuota),ncuotas:num(d.num_cuotas),
+    frecuencia:FRECUENCIAS.includes(norm(d.frecuencia||""))?norm(d.frecuencia):"",
+    entrada:d.entrada===0||d.entrada==="0"?0:num(d.entrada),precio_final:num(d.precio_final),
+    plan:d.plan_credito||"",regalo:d.regalo||"",
+    litros:num(m.litros),btu:num(m.btu),pulgadas:num(m.pulgadas),kg:num(m.kg),pies3:num(m.pies3),watts:num(m.watts),
+    especificaciones:d.especificaciones||"",legible:d.legible!==false,_leido:true,_ia:true,_aviso:d.aviso||""};
   // regla de oro: una cuota nunca es precio de contado
   if(out.cuota!=null&&out.contado!=null&&Math.abs(out.cuota-out.contado)<0.01)out.contado=null;
-  if(out.normal!=null&&out.contado!=null&&out.normal<out.contado){const t=out.normal;out.normal=out.contado;out.contado=t;}
+  if(out.antes!=null&&out.contado!=null&&out.antes<out.contado){const t=out.antes;out.antes=out.contado;out.contado=t;}
   return out;
+}
+function draftDesdeBasico(p){
+  return {producto:p.producto||"",marca:p.marca||"",modelo:p.modelo||"",categoria:p.categoria||"",
+    contado:p.contado,antes:p.normal,cuota:p.cuota,ncuotas:p.ncuotas,frecuencia:p.frecuencia||"",entrada:p.entrada,
+    plan:p.plan||"",regalo:p.regalo||"",texto:p.texto||"",_leido:true,_basico:true};
+}
+function avisosDe(d){
+  const has=k=>d[k]!=null&&d[k]!=="";
+  const a=[];
+  if(d._aviso)a.push(d._aviso);
+  if(!S.agencia)a.push("Elige arriba la agencia donde estás.");
+  if(!has("producto")&&!has("modelo"))a.push("No se leyó el producto ni el código.");
+  if(!has("contado")&&!has("cuota"))a.push("No se leyó ningún precio: escríbelo a mano o toma otra foto.");
+  if(has("cuota")&&!has("contado"))a.push("Solo hay cuota: confirma si el cartel tiene precio de contado.");
+  if(has("cuota")&&!has("ncuotas"))a.push("Falta el número de cuotas (plazo).");
+  if(has("cuota")&&has("ncuotas")&&has("precio_final")){
+    const calc=d.cuota*d.ncuotas;
+    if(Math.abs(calc-d.precio_final)>0.02*d.precio_final)a.push(`Cuota × plazo (${fmt(calc)}) no coincide con el precio final (${fmt(d.precio_final)}): revisa.`);
+  }
+  if(has("precio_final")&&has("contado")&&d.precio_final<d.contado)a.push("El precio final a crédito es menor que el de contado: revisa.");
+  return a;
 }
 async function onPhoto(file){
   if(!file)return;
-  actualizarCiudad();
   S.flow="reading";S.ocrPct=0;S.ocrMsg="Preparando la foto";S.photoUrl=URL.createObjectURL(file);S.iaError="";S.iaDetalle="";render();
   let img;
-  try{img=await prepImage(file);}catch{toast("No se pudo abrir la foto");S.flow="idle";render();return;}
+  try{img=await prepImage(file);}catch{toast("No se pudo abrir la foto");siguiente();return;}
   S.photo=img.save;
-  let draft=null;
   S.ocrMsg="Leyendo el preciador con IA";S.ocrPct=30;render();
   const ia=await leerConIA(img.save);
+  let draft;
   if(ia){
     draft=draftDesdeIA(ia);
     const t=tiendaDetectada(ia.tienda);
-    if(t&&t!==S.tienda){S.tienda=t;ls.set("ch_tienda",t);draft._tiendaDet=t;}
-    else if(t)draft._tiendaDet=t;
+    if(t){S.tienda=t;ls.set("ch_tienda",t);draft._tiendaDet=t;}
   }else{
     try{
       S.ocrMsg="Lector básico (sin IA)";render();
       const w=await getWorker();
       const {data}=await w.recognize(img.ocr);
       const lines=(data.lines||[]).map(l=>({text:l.text,h:(l.bbox?.y1||0)-(l.bbox?.y0||0)}));
-      draft={...CazaParser.parseTag(lines.length?lines:data.text||"",{brands:MAESTRO.marcas}),_leido:true,_basico:true};
-    }catch(e){console.error(e);toast("No se pudo leer. Llena los datos a mano.");draft={};}
+      draft=draftDesdeBasico({...CazaParser.parseTag(lines.length?lines:data.text||"",{brands:[]})});
+    }catch(e){console.error(e);toast("No se pudo leer. Llena los datos a mano.");draft={_leido:true,_basico:true};}
   }
   S.draft=draft;
-  sugerirCategoria(S.draft);
   S.flow="review";render();
+}
+function empezarFotos(files){
+  const arr=[...files];
+  if(!arr.length)return;
+  S.cola=arr.slice(1);S.total=arr.length;S.hecha=0;
+  onPhoto(arr[0]);
+}
+function escribirManual(){
+  S.draft={_leido:false};S.photo=null;S.photoUrl="";S.cola=[];S.total=1;S.hecha=0;S.flow="review";render();
+}
+function siguiente(){
+  if(S.cola.length){onPhoto(S.cola.shift());return;}
+  S.flow="idle";S.draft=null;S.photo=null;S.photoUrl="";S.total=0;S.hecha=0;render();
 }
 
 /* ============ guardar (con cola sin señal) ============ */
-function sugerirCategoria(d){
-  if(!d||!MAESTRO.listo||(!d.producto&&!d.modelo))return;
-  const {q,enMaestro,catSugerida}=perfilCompetencia({producto:d.producto,marca:d.marca,modelo:d.modelo,categoria:""});
-  if(!d.categoria&&(q.cat||catSugerida)){d.categoria=q.cat||catSugerida;d._catSug=true;}
-  if(!d.marca&&enMaestro)d.marca=enMaestro.marca;
+function enqueue(item){const q=queue();q.push(item);ls.set("ch_queue",q);renderNet();}
+async function enviar(item){
+  if(!CFG.API_URL||!navigator.onLine){enqueue(item);return "cola";}
+  try{await apiPost({action:"guardar",captura:item.cap,foto:item.foto});return "ok";}
+  catch(e){if(String(e.message)==="pin")return "pin";enqueue(item);return "cola";}
 }
-function queue(){return ls.get("ch_queue",[]);}
+let enviando=false;
 async function flushQueue(){
-  if(!CFG.API_URL||!S.perfil?.pin||flushQueue.busy)return;
-  let q=queue();if(!q.length)return;
-  flushQueue.busy=true;
+  if(enviando||!navigator.onLine||!CFG.API_URL||!S.perfil)return;
+  const q=queue();if(!q.length)return;
+  enviando=true;
+  const left=[];
+  for(const it of q){try{await apiPost({action:"guardar",captura:it.cap,foto:it.foto});}catch(e){left.push(it);}}
+  ls.set("ch_queue",left);enviando=false;renderNet();
+  if(q.length!==left.length)toast(`Se enviaron ${q.length-left.length} captura(s) pendientes`);
+}
+const capParaMis=cap=>({...cap,fecha:cap.creado,num_cuotas:cap.ncuotas,foto_id:""});
+function readForm(){
+  const g=id=>{const el=$("#"+id);return el?el.value.trim():"";};
+  return {producto:g("f-producto"),marca:g("f-marca"),modelo:g("f-modelo").toUpperCase(),categoria:g("f-categoria"),
+    contado:money(g("f-contado")),antes:money(g("f-antes")),pvp_lista:money(g("f-pvplista")),
+    cuota:money(g("f-cuota")),ncuotas:money(g("f-ncuotas")),frecuencia:g("f-frecuencia"),
+    entrada:money(g("f-entrada")),precio_final:money(g("f-preciofinal")),plan:g("f-plan"),regalo:g("f-regalo"),
+    litros:money(g("f-litros")),btu:money(g("f-btu")),pulgadas:money(g("f-pulgadas")),kg:money(g("f-kg")),
+    pies3:money(g("f-pies3")),watts:money(g("f-watts")),especificaciones:g("f-espec")};
+}
+async function guardarCaptura(){
+  if(!S.agencia){toast("Elige primero la agencia donde estás");return;}
+  const v=readForm();
+  if(!v.producto&&!v.modelo){toast("Escribe el producto o el código");return;}
+  if(v.contado==null&&v.cuota==null){toast("Falta el precio de contado o la cuota");return;}
+  const cap={id:uid(),creado:Date.now(),autor:S.perfil.nombre,agencia:S.agencia,competidor:S.tienda,
+    origen:isCresa(S.tienda)?"cresa":"competencia",...v,texto_ocr:S.draft?.texto||""};
+  const res=await enviar({cap,foto:S.photo||""});
+  if(res==="pin"){toast("El PIN no coincide. Revisa con tu coordinador.");return;}
+  S.mis=[capParaMis(cap),...S.mis].slice(0,300);ls.set("ch_mis",S.mis);
+  toast(res==="ok"?"Guardada en el Sheet":"Sin señal: quedó en el teléfono y se envía sola");
+  S.hecha++;siguiente();
+}
+async function guardarEdicion(){
+  const c=S.editing;const v=readForm();
+  const campos={...v,num_cuotas:v.ncuotas,agencia:$("#f-agencia")?.value||c.agencia,competidor:$("#f-tienda")?.value||c.competidor};
+  delete campos.ncuotas;
+  if(!campos.agencia){toast("Elige la agencia");return;}
+  if(!navigator.onLine||!CFG.API_URL){toast("Sin señal: no se pudo guardar el cambio");return;}
   try{
-    while(q.length){
-      const it=q[0];
-      try{await apiPost({action:"guardar",captura:it.captura,foto:it.foto});}catch(e){if(e.message==="pin"){toast("PIN incorrecto");}break;}
-      q.shift();ls.set("ch_queue",q);
-    }
-  }finally{flushQueue.busy=false;}
-  renderNet();
-  if(!q.length)loadCaps();
+    await apiPost({action:"editar",id:c.id,autor:S.perfil.nombre,campos});
+    const nuevo={...c,...campos,ncuotas:v.ncuotas};
+    S.mis=S.mis.map(x=>x.id===c.id?nuevo:x);ls.set("ch_mis",S.mis);
+    S.editing=null;toast("Cambios guardados en el Sheet");render();
+  }catch(e){
+    const m={no_autor:"Solo quien capturó puede cambiarla",no_encontrada:"Esta captura todavía no llegó al Sheet: espera la señal"}[e.message]||"No se pudo guardar el cambio";
+    toast(m);
+  }
 }
-function enqueue(item){
-  const q=queue();q.push(item);
-  if(!ls.set("ch_queue",q)){item.foto=null;q[q.length-1]=item;ls.set("ch_queue",q);}
-}
-async function onSave(){
-  const f=readForm();
-  if(!f.producto&&!f.modelo)return toast("Escribe al menos el producto o el modelo");
-  if(f.contado==null&&f.cuota==null)return toast("Falta el precio o la cuota");
-  const ciudad=$("#f-ciudad")?.value||S.ciudad||"";
-  if(ciudad&&ciudad!==S.ciudad){S.ciudad=ciudad;S.ciudadManual=true;ls.set("ch_ciudad",{c:ciudad,m:true});}
-  const cap={...f,id:uid(),competidor:S.tienda,ciudad,agencia:ciudad,autor:S.perfil?.nombre||"",creado:Date.now()};
-  if(esCresa(S.tienda))return onSaveOurs(cap);
-  cap.origen="competencia";
-  const cmp=compare(cap);
-  const captura={...cap,antes:cap.normal,veredicto:cmp.veredicto,sku_cresa:cmp.matchSku||"",diferencia:cmp.diff,mejor_cadena:cmp.mejorCadena||"",
-    categoria:cap.categoria||cmp.categoria||"",tipo_match:cmp.matchTipo||"",en_maestro_sin_stock:cmp.enMaestro||"",
-    alternativas:cmp.alternativas.map(a=>({sku:a.sku,tipo:a.tipo,razon:a.razon})),texto_ocr:S.draft?.texto||""};
-  enqueue({captura,foto:S.photo});
-  S.caps.unshift({...captura,_local:true,_foto:S.photoUrl});
-  S.result={cap,cmp};S.flow="result";render();window.scrollTo({top:0,behavior:"smooth"});
-  flushQueue().then(()=>{if(queue().some(q=>q.captura.id===cap.id))toast("Guardado en el teléfono. Se envía cuando haya señal.");else toast("Guardado para todo el equipo");});
-}
-function onSaveOurs(cap){
-  const {g,como}=identificarNuestro(cap);
-  cap.origen="cresa";
-  const ours={ciudad:cap.ciudad,cadena:cap.competidor,contado:cap.contado,normal:cap.normal,cuota:cap.cuota,ncuotas:cap.ncuotas,frecuencia:cap.frecuencia,entrada:cap.entrada,plan:cap.plan,promo:cap.regalo};
-  const r=vsCompetencia(g,ours);
-  const captura={...cap,antes:cap.normal,categoria:cap.categoria||g.categoria||"",sku_cresa:g.sku||"",tipo_match:como,veredicto:r.veredicto,
-    diferencia:r.diff,mejor_cadena:r.rival?.competidor||"",alternativas:r.alts,texto_ocr:S.draft?.texto||""};
-  enqueue({captura,foto:S.photo});
-  S.caps.unshift({...captura,_local:true,_foto:S.photoUrl});
-  rebuildCatalog(S.catRows||[]);
-  const g2=g.sku&&S.bySku.get(g.sku)||g;
-  S.result={ours:true,g:g2,o:ours,r};S.flow="result";render();window.scrollTo({top:0,behavior:"smooth"});
-  flushQueue().then(()=>{if(queue().some(q=>q.captura.id===cap.id))toast("Guardado en el teléfono. Se envía cuando haya señal.");else toast("Precio Cresa guardado para todo el equipo");});
-}
-async function loadCaps(){
-  if(!CFG.API_URL||!S.perfil?.pin)return;
-  try{const j=await apiGet("capturas","&n=300");
-    const pend=queue().map(q=>({...q.captura,_local:true}));
-    S.caps=pend.concat(j.rows.map(r=>({...r,creado:r.fecha,normal:r.antes,ncuotas:r.num_cuotas})));
-    ls.set("ch_caps",j.rows.slice(0,100).map(r=>({...r,creado:r.fecha,normal:r.antes,ncuotas:r.num_cuotas})));
-    S.capsLoaded=true;rebuildCatalog(S.catRows||[]);
-    if(S.tab==="competencia"&&!document.activeElement?.matches("input")&&!$("#sheet").innerHTML)render();
-  }catch{}
+async function cargarMis(){
+  if(!navigator.onLine||!CFG.API_URL||!S.perfil)return;
+  try{
+    const j=await apiGet("capturas","&n=500");
+    const mias=j.rows.filter(r=>r.autor===S.perfil.nombre).sort((a,b)=>(b.fecha||0)-(a.fecha||0)).slice(0,300);
+    // conserva las que aún están en la cola del teléfono
+    const pend=queue().map(i=>capParaMis(i.cap)).filter(p=>!mias.some(m=>m.id===p.id));
+    S.mis=[...pend,...mias];ls.set("ch_mis",S.mis);S.misMsg="";
+  }catch(e){S.misMsg=String(e.message)==="pin"?"El PIN no coincide":"No se pudo actualizar: sin señal";}
+  render();
 }
 
-/* ============ vistas ============ */
-function renderTabs(){
-  const t=[["capturar","Capturar",ICON.cam],["competencia","Competencia",ICON.list],["buscar","Nuestros precios",ICON.search]];
-  $("#tabs").innerHTML=t.map(([k,l,i])=>`<button class="tab" data-tab="${k}" aria-current="${S.tab===k}">${i}<span>${l}</span></button>`).join("");
+/* ============ pantallas ============ */
+function selAg(id,val){
+  if(!CFG.AGENCIAS.length)return `<input id="${id}" value="${esc(val||"")}" placeholder="Escribe tu agencia">`;
+  return `<select id="${id}"><option value="">— Elige la agencia —</option>${CFG.AGENCIAS.map(a=>`<option ${a===val?"selected":""}>${esc(a)}</option>`).join("")}</select>`;
 }
-function renderNet(){const q=queue().length;$("#net").className="net"+(S.online?"":" off");$("#who").textContent=(S.perfil?.nombre||"")+(q?` · ${q} por enviar`:"");}
-function render(){
-  renderTabs();renderNet();
-  if(!S.perfil||!S.perfil.pin){$("#app").innerHTML=viewOnboard();return;}
-  $("#app").innerHTML=({capturar:viewCapture,competencia:viewFeed,buscar:viewSearch}[S.tab]||viewCapture)();
-}
-function setupBanner(){
-  if(!CFG.API_URL)return `<div class="banner">Falta conectar la base de datos: pega la URL de Apps Script en <b>config.js</b>. Mientras tanto la app funciona solo en este teléfono.</div>`;
-  if(!S.catalog.length)return `<div class="banner">Cargando productos de Cresa…</div>`;
-  if(!S.conPrecio)return `<div class="banner">Todavía no hay precios de Black cargados. Mientras tanto se compara contra lo vendido este mes, sin precio.</div>`;
-  return "";
-}
+function chip(c){return `<button class="chip" data-tienda="${esc(c)}" aria-pressed="${S.tienda===c}">${esc(c)}</button>`;}
 function viewOnboard(){
-  const p=S.perfil||{};
-  return `<section class="card">
-    <div><div class="lbl">Localizador Unificado de Precios y Alternativas</div><h2 style="margin-top:4px">Ponle la lupa a la competencia</h2></div>
-    <p class="muted small" style="margin:0">Toma foto a los preciadores de la competencia y compáralos al instante con lo que tenemos en Crecos, Orve y Japón.</p>
-    <div class="field"><label for="o-nombre">Tu nombre</label><input id="o-nombre" value="${esc(p.nombre)}" autocomplete="name"></div>
-    <div class="field"><label for="o-pin">PIN del equipo</label><input id="o-pin" type="password" inputmode="text" value="" autocomplete="off"></div>
-    <button class="btn block" id="o-ok">Entrar</button>
-  </section>`;
+  return `<section class="card"><h2>Entrar a LUPA</h2>
+    <div class="small muted">Tu nombre y el PIN del equipo. Nada más. La agencia la eliges al capturar.</div>
+    <div class="field"><label for="ob-nombre">Tu nombre</label><input id="ob-nombre" autocomplete="name" value=""></div>
+    <div class="field"><label for="ob-pin">PIN del equipo</label><input id="ob-pin" inputmode="numeric" type="password" autocomplete="off"></div>
+    <button class="btn block" id="entrar">Entrar</button></section>`;
 }
 function viewCapture(){
-  let h=setupBanner();
-  if(S.flow==="result"&&S.result)return h+(S.result.ours?resultOurs(S.result.g,S.result.o,S.result.r,{isNew:true}):resultView(S.result.cap,S.result.cmp,true));
-  const chip=c=>`<button class="chip" data-tienda="${esc(c)}" aria-pressed="${S.tienda===c}">${esc(c)}</button>`;
-  h+=`<section class="card"><div class="lbl">¿De quién es el preciador?</div>
-    <div class="row small" style="gap:6px"><span class="pill brand">${esc(S.tienda)}</span><span>·</span><b id="ciudadTxt">${esc(S.ciudad||"Ciudad sin detectar")}</b><button class="btn ghost small" id="ubicar" style="min-height:30px;padding:4px 10px">📍 Detectar</button></div>
-    ${!S.ciudad&&S.ciudadPend?`<div class="small muted">No se pudo leer la ubicación. Elige la ciudad al revisar los datos.</div>`:""}
-    <div class="small muted" style="margin-bottom:-4px">Competencia</div>
-    <div class="chips" role="group" aria-label="Competidor">${CFG.COMPETIDORES.map(chip).join("")}</div>
-    <div class="small muted" style="margin-bottom:-4px">Nuestras cadenas</div>
-    <div class="chips" role="group" aria-label="Cadena Cresa">${CFG.CADENAS.map(chip).join("")}</div></section>`;
+  let h=`<section class="card"><div class="lbl">Agencia donde estás hoy</div>${selAg("ag-sel",S.agencia)}
+    <div class="small muted">Se recuerda la última. Cámbiala si hoy estás en otra.</div></section>`;
   if(S.flow==="idle"){
-    h+=`<section class="card"><div class="shoot"><div class="big">${ICON.cam}</div><strong>Foto al preciador</strong>
-      <span class="muted small">Acércate para que el precio llene la foto. Una etiqueta por foto, sin reflejo.</span>
+    h+=`<section class="card"><div class="lbl">¿De quién es el preciador?</div>
+      <div class="small muted">Competencia</div><div class="chips" role="group" aria-label="Competidor">${CFG.COMPETIDORES.map(chip).join("")}</div>
+      <div class="small muted">Nuestras cadenas</div><div class="chips" role="group" aria-label="Cadena Cresa">${CFG.CADENAS.map(chip).join("")}</div></section>
+    <section class="card"><div class="shoot"><div class="big">${ICON.cam}</div><strong>Foto al preciador</strong>
+      <span class="muted small">Una etiqueta por foto. Puedes elegir varias de la galería.</span>
       <input id="cam" type="file" accept="image/*" capture="environment" aria-label="Tomar foto del preciador"></div>
-      <div class="small muted" style="line-height:1.5;margin-top:4px"><b>Para que LUPA lo lea bien:</b>
+      <div class="filebtn btn ghost block">Elegir fotos de la galería<input id="gal" type="file" accept="image/*" multiple aria-label="Elegir fotos de la galería"></div>
+      <div class="small muted" style="line-height:1.5"><b>Para que LUPA lo lea bien:</b>
         <br>• Que salgan completos el nombre del producto y el precio grande.
-        <br>• Si hay cuota: que salgan juntos el precio de cuota, el plazo (12 meses, x 12) y el precio de contado, con su rótulo («contado», «PVP», «cuotas»).
+        <br>• Si hay cuota: que salgan juntos el precio de cuota, el plazo (12 meses, x 24) y el precio de contado, con su rótulo («contado», «PVP», «cuotas»).
         <br>• Si la hoja de crédito está aparte del producto, fotografíala también.
         <br>• De frente, de cerca y sin reflejo. Una etiqueta por foto.</div>
       <button class="btn ghost block" id="manual">Escribir a mano, sin foto</button></section>`;
-    const mine=S.caps.filter(c=>c.autor&&c.autor===S.perfil?.nombre).slice(0,3);
-    if(mine.length)h+=`<section class="card"><div class="lbl">Tus últimas capturas</div><div class="feed">${mine.map(itemHTML).join("")}</div></section>`;
   }
   if(S.flow==="reading")h+=`<section class="card"><div class="scanning"><img class="preview" src="${S.photoUrl}" alt="Foto del preciador"></div>
-    <div class="row"><span class="spin"></span><strong id="ocrMsg">${esc(S.ocrMsg)}</strong></div><div class="bar" id="ocrBar"><i style="width:${S.ocrPct}%"></i></div></section>`;
-  if(S.flow==="review")h+=reviewForm();
+    <div class="row"><span class="spin"></span><strong id="ocrMsg">${esc(S.ocrMsg)}</strong></div><div class="bar" id="ocrBar"><i style="width:${S.ocrPct}%"></i></div>
+    ${S.total>1?`<div class="small muted">Foto ${S.hecha+1} de ${S.total}</div>`:""}</section>`;
+  if(S.flow==="review")h+=reviewForm(S.draft||{},{});
   return h;
 }
-function reviewForm(){
-  const d=S.draft||{};
-  const opt=(arr,v)=>`<option value="">—</option>`+arr.map(a=>`<option ${a===v?"selected":""}>${esc(a)}</option>`).join("");
+function reviewForm(d,opt={}){
+  const ed=!!opt.editing;
   const has=k=>d[k]!=null&&d[k]!=="";
-  const credito=has("cuota")||has("ncuotas")||has("frecuencia")||has("entrada")||has("plan");
-  const extra=has("normal")||has("regalo");
-  const av=[];
-  if(d._aviso)av.push(d._aviso);
-  if(has("cuota")&&!has("contado"))av.push("Solo hay cuota: confirma si el cartel tiene precio de contado.");
-  if(has("cuota")&&!has("ncuotas"))av.push("Falta el número de cuotas (plazo).");
-  if(!has("contado")&&!has("cuota"))av.push("No se leyó ningún precio: escríbelo a mano o toma otra foto.");
-  const avisos=av.length?`<div class="banner"><b>Revisa antes de guardar:</b><ul style="margin:6px 0 0 18px;padding:0">${av.map(a=>`<li>${esc(a)}</li>`).join("")}</ul></div>`:"";
-  const origen=d._ia?`<span class="pill good">Leído con IA</span>`:d._basico?`<span class="pill warn">Lector básico</span>`:"";
-  const iaNota=d._basico?`<div class="banner"><b>No se usó la IA:</b> ${esc(iaErrTxt(S.iaError))}${S.iaDetalle?`<br><small style="word-break:break-word">Detalle: ${esc(S.iaDetalle)}</small>`:""}<br>El lector básico no entiende letra a mano; revisa bien o escribe los datos.</div>`:"";
+  const v=k=>has(k)?esc(d[k]):"";
+  const n=k=>has(k)?esc(d[k]):"";
+  const credito=["cuota","ncuotas","frecuencia","entrada","plan","precio_final","pvp_lista"].some(has);
+  const tech=["litros","btu","pulgadas","kg","pies3","watts","especificaciones"].some(has);
+  const precios=["antes","regalo"].some(has);
+  const avisos=ed?[]:avisosDe(d);
+  const tienda=opt.tienda||S.tienda;
+  const img=opt.thumb||S.photoUrl;
+  const iaNota=d._basico&&!ed?`<div class="banner"><b>No se usó la IA:</b> ${esc(iaErrTxt(S.iaError))}${S.iaDetalle?`<br><small style="word-break:break-word">Detalle: ${esc(S.iaDetalle)}</small>`:""}<br>El lector básico no entiende letra a mano; revisa bien.</div>`:"";
+  const origen=d._ia?`<span class="pill good">Leído con IA</span>`:d._basico&&!ed?`<span class="pill warn">Lector básico</span>`:"";
+  const opts=(arr,val)=>`<option value="">—</option>`+arr.map(a=>`<option ${a===val?"selected":""}>${esc(a)}</option>`).join("");
   return `<section class="card">
-    ${S.photoUrl?`<img class="preview" src="${S.photoUrl}" alt="Foto del preciador">`:""}
-    <div><h2>Revisa los datos</h2><div class="row" style="margin-top:6px">${esCresa(S.tienda)?`<span class="pill brand">Preciador de ${esc(S.tienda)}${S.ciudad?" · "+esc(S.ciudad):""}</span>`:`<span class="pill">${esc(S.tienda)}${S.ciudad?" · "+esc(S.ciudad):""}</span>`}${d._tiendaDet?`<span class="pill">detectado en el cartel</span>`:""}${origen}</div></div>
-    ${iaNota}${avisos}${d._leido&&d.legible===false?`<div class="banner">No se lee bien. Toma otra foto más de cerca o escribe los datos.</div>`:""}
+    ${img?`<img class="preview" src="${esc(img)}" alt="Foto del preciador" referrerpolicy="no-referrer">`:""}
+    <div><h2>${ed?"Editar captura":"Revisa los datos"}</h2>
+      <div class="row" style="margin-top:6px"><span class="pill ${isCresa(tienda)?"brand":""}">${esc(tienda)}</span><span class="pill">${esc(ed?(d.agencia||"sin agencia"):(S.agencia||"sin agencia"))}</span>${S.total>1&&!ed?`<span class="pill">Foto ${S.hecha+1} de ${S.total}</span>`:""}${origen}</div></div>
+    ${iaNota}${avisos.length?`<div class="banner"><b>Revisa antes de guardar:</b><ul style="margin:6px 0 0 18px;padding:0">${avisos.map(a=>`<li>${esc(a)}</li>`).join("")}</ul></div>`:""}
+    ${ed?`<div class="grid2">
+      <div class="field"><label for="f-agencia">Agencia</label>${selAg("f-agencia",d.agencia)}</div>
+      <div class="field"><label for="f-tienda">Preciador de</label><select id="f-tienda">${opts([...CFG.COMPETIDORES,...CFG.CADENAS],d.competidor)}</select></div></div>`:""}
     <div class="grid2">
-      <div class="field full"><label for="f-ciudad">Ciudad</label><select id="f-ciudad"><option value="">— Elige la ciudad —</option>${CIUDADES_ORDEN.concat(["Otra"]).map(c=>`<option ${c===S.ciudad?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
-      <div class="field full"><label for="f-producto">Producto</label><input id="f-producto" value="${esc(d.producto)}" placeholder="TV 43 pulgadas FHD"></div>
-      <div class="field"><label for="f-marca">Marca</label><input id="f-marca" value="${esc(d.marca)}"></div>
-      <div class="field"><label for="f-modelo" id="lbl-modelo">${esCresa(S.tienda)?"Código Cresa":"Modelo"}</label><input id="f-modelo" value="${esc(d.modelo)}" autocapitalize="characters"></div>
-      <div class="field full"><label for="f-categoria">Categoría${d._catSug?" (sugerida)":""}</label><select id="f-categoria">${opt(CATEGORIAS,d.categoria)}</select></div>
-      <div class="field full"><label for="f-contado">Precio de contado $</label><input id="f-contado" inputmode="decimal" value="${d.contado??""}" placeholder="${credito?"Solo si el cartel muestra precio de contado":""}"></div>
+      <div class="field full"><label for="f-producto">Producto</label><input id="f-producto" value="${v("producto")}" placeholder="Split inverter 12 BTU"></div>
+      <div class="field"><label for="f-marca">Marca</label><input id="f-marca" value="${v("marca")}"></div>
+      <div class="field"><label for="f-modelo">Código o modelo</label><input id="f-modelo" value="${v("modelo")}" autocapitalize="characters"></div>
+      <div class="field full"><label for="f-categoria">Categoría</label><select id="f-categoria">${opts(CATEGORIAS,d.categoria)}</select></div>
+      <div class="field full"><label for="f-contado">Precio de contado $</label><input id="f-contado" inputmode="decimal" value="${n("contado")}"></div>
     </div>
-    <details ${credito?"open":""}><summary>${credito?"Crédito / cuotas":"+ El cartel muestra cuotas o crédito"}</summary>
+    <details ${tech?"open":""}><summary>Características del producto</summary>
       <div class="grid2" style="margin-top:10px">
-        <div class="field"><label for="f-cuota">Cuota $</label><input id="f-cuota" inputmode="decimal" value="${d.cuota??""}"></div>
-        <div class="field"><label for="f-ncuotas">N.º de cuotas</label><input id="f-ncuotas" inputmode="numeric" value="${d.ncuotas??""}"></div>
-        <div class="field"><label for="f-frecuencia">Frecuencia</label><select id="f-frecuencia">${opt(FRECUENCIAS,d.frecuencia)}</select></div>
-        <div class="field"><label for="f-entrada">Entrada $</label><input id="f-entrada" inputmode="decimal" value="${d.entrada??""}"></div>
-        <div class="field full"><label for="f-plan">Plan de crédito</label><input id="f-plan" value="${esc(d.plan)}"></div>
+        <div class="field"><label for="f-litros">Litros</label><input id="f-litros" inputmode="decimal" value="${n("litros")}"></div>
+        <div class="field"><label for="f-btu">BTU</label><input id="f-btu" inputmode="decimal" value="${n("btu")}"></div>
+        <div class="field"><label for="f-pulgadas">Pulgadas</label><input id="f-pulgadas" inputmode="decimal" value="${n("pulgadas")}"></div>
+        <div class="field"><label for="f-kg">Kilos</label><input id="f-kg" inputmode="decimal" value="${n("kg")}"></div>
+        <div class="field"><label for="f-pies3">Pies cúbicos</label><input id="f-pies3" inputmode="decimal" value="${n("pies3")}"></div>
+        <div class="field"><label for="f-watts">Watts</label><input id="f-watts" inputmode="decimal" value="${n("watts")}"></div>
+        <div class="field full"><label for="f-espec">Tecnología y tipo</label><input id="f-espec" value="${v("especificaciones")}" placeholder="Inverter · Blanco · Frío"></div>
       </div></details>
-    <details ${extra?"open":""}><summary>${extra?"Otros datos del cartel":"+ Precio anterior o regalo"}</summary>
+    <details ${credito?"open":""}><summary>Crédito y cuotas</summary>
       <div class="grid2" style="margin-top:10px">
-        <div class="field"><label for="f-normal">Precio antes $</label><input id="f-normal" inputmode="decimal" value="${d.normal??""}"></div>
-        <div class="field full"><label for="f-regalo">Regalo o promo</label><input id="f-regalo" value="${esc(d.regalo)}"></div>
+        <div class="field"><label for="f-cuota">Cuota $</label><input id="f-cuota" inputmode="decimal" value="${n("cuota")}"></div>
+        <div class="field"><label for="f-ncuotas">Número de cuotas</label><input id="f-ncuotas" inputmode="numeric" value="${n("ncuotas")}"></div>
+        <div class="field"><label for="f-frecuencia">Frecuencia</label><select id="f-frecuencia">${opts(FRECUENCIAS,d.frecuencia)}</select></div>
+        <div class="field"><label for="f-entrada">Entrada $</label><input id="f-entrada" inputmode="decimal" value="${n("entrada")}"></div>
+        <div class="field full"><label for="f-preciofinal">Precio final a crédito $</label><input id="f-preciofinal" inputmode="decimal" value="${n("precio_final")}"></div>
+        <div class="field full"><label for="f-plan">Plan o texto de crédito</label><input id="f-plan" value="${v("plan")}"></div>
+      </div></details>
+    <details ${precios?"open":""}><summary>PVP, precio antes y regalo</summary>
+      <div class="grid2" style="margin-top:10px">
+        <div class="field"><label for="f-pvplista">PVP de lista $</label><input id="f-pvplista" inputmode="decimal" value="${n("pvp_lista")}"></div>
+        <div class="field"><label for="f-antes">Precio antes (tachado) $</label><input id="f-antes" inputmode="decimal" value="${n("antes")}"></div>
+        <div class="field full"><label for="f-regalo">Regalo o promo</label><input id="f-regalo" value="${v("regalo")}"></div>
       </div></details>
     ${d.texto?`<details><summary>Ver texto leído</summary><pre>${esc(d.texto)}</pre></details>`:""}
-    <button class="btn block" id="save">${esCresa(S.tienda)?"Guardar y comparar con la competencia":"Comparar y guardar"}</button>
-    <button class="btn ghost block" id="cancel">Descartar</button>
+    <button class="btn block" id="save">${ed?"Guardar cambios":"Guardar y seguir"}</button>
+    <button class="btn ghost block" id="cancel">${ed?"Volver sin cambios":"Descartar esta foto"}</button>
   </section>`;
 }
-function readFormRaw(){const g=id=>$("#"+id)?.value.trim()??"";const o={producto:g("f-producto"),marca:g("f-marca"),modelo:g("f-modelo"),categoria:g("f-categoria"),contado:g("f-contado"),normal:g("f-normal"),cuota:g("f-cuota"),ncuotas:g("f-ncuotas"),frecuencia:g("f-frecuencia"),entrada:g("f-entrada"),plan:g("f-plan"),regalo:g("f-regalo")};return o;}
-function readForm(){
-  const g=id=>$("#"+id)?.value.trim()||"";
-  return {producto:g("f-producto"),marca:g("f-marca"),modelo:g("f-modelo").toUpperCase(),categoria:g("f-categoria"),
-    contado:money(g("f-contado")),normal:money(g("f-normal")),cuota:money(g("f-cuota")),ncuotas:money(g("f-ncuotas")),
-    frecuencia:g("f-frecuencia"),entrada:money(g("f-entrada")),plan:g("f-plan"),regalo:g("f-regalo")};
-}
-const VER={nosotros:["v-good","Cresa más barato"],igual:["v-warn","Mismo precio"],ellos:["v-bad","Competencia más barata"],sin_match:["v-none","No tenemos nada parecido"],sin_precio:["v-warn","Lo tenemos, falta precio"]};
-const ALT={similar:["","Similar"],mas_barato:["good","Más barato"],mejor_credito:["brand","Mejor crédito"],mejor_promo:["warn","Mejor promo"],superior:["","Superior"]};
-function chainRows(g,cap){
-  return g.cadenas.map(c=>{
-    let d="";const cc=money(cap.contado);
-    if(c.contado!=null&&cc!=null){const x=c.contado-cc;d=Math.abs(x)<1?`<span class="diff">igual</span>`:`<span class="diff ${x<0?"good":"bad"}">${x<0?"−":"+"}${fmt(Math.abs(x))}</span>`;}
-    const det=[cuotaTxt(c),c.entrada!=null?`entrada ${fmt(c.entrada)}`:"",c.plan,c.promo,c.fuente==="foto"?`foto ${c.fecha?ago(c.fecha):""}`:""].filter(Boolean).join(" · ");
-    return `<div class="chain"><span class="cn">${esc(c.cadena)}</span><span class="cd">${esc(det)||"&nbsp;"}</span><span class="cp num">${fmt(c.contado)}${d}</span></div>`;
-  }).join("");
-}
-function resultView(cap,cmp,isNew){
-  const match=cmp?.matchSku?S.bySku.get(String(cmp.matchSku)):null;
-  const [vc,vt]=VER[cmp?.veredicto]||VER.sin_match;
-  let vs="";
-  if(cmp?.veredicto==="nosotros")vs=cmp.diff!=null?`${fmt(Math.abs(cmp.diff))} menos en ${esc(cmp.mejorCadena)}`:"Nuestra cuota es más baja";
-  else if(cmp?.veredicto==="ellos")vs=`${esc(cap.competidor)} está ${cmp.diff!=null?fmt(cmp.diff)+" ":""}más abajo. Mira las alternativas.`;
-  else if(cmp?.veredicto==="igual")vs="Gana con el crédito o la promo.";
-  else if(cmp?.veredicto==="sin_precio")vs=match?.sinPrecio?"Lo tenemos (se vendió este mes), pero no está en la lista de precios Black. Confirma el precio en el sistema.":"Falta el precio para comparar.";
-  else if(cmp?.veredicto==="sin_match")vs=S.catalog.length?"No vendemos nada de esa categoría en Black.":"El catálogo de Cresa aún no está cargado.";
-  if(match&&cmp.matchTipo==="parecido"&&vs)vs+=" (comparado con lo más parecido)";
-  const best=match?.best;
-  let h=`<section class="card">
-    <div class="row" style="justify-content:space-between"><span class="pill brand">${esc(cap.competidor)}</span><span class="muted small">${esc(cap.ciudad||cap.agencia||"")}${cap.creado?" · "+ago(cap.creado):""}</span></div>
-    <h2>${esc(cap.producto||"Producto sin nombre")}</h2>
-    ${cap.marca||cap.modelo?`<div class="muted small">${esc([cap.marca,cap.modelo].filter(Boolean).join(" · "))}</div>`:""}
-    <div class="duel">
-      <div class="tag"><span class="w">${esc(cap.competidor)}</span><span class="p">${priceHTML(money(cap.contado))}</span><span class="c">${esc(cuotaTxt(cap))||"&nbsp;"}</span></div>
-      <div class="tag ours"><span class="w">Cresa${best?" · "+esc(best.cadena):""}</span><span class="p">${best?priceHTML(best.contado):"—"}</span><span class="c">${esc(cuotaTxt(best))||"&nbsp;"}</span></div>
-    </div>
-    ${money(cap.normal)||money(cap.entrada)!=null||cap.plan||cap.regalo?`<div class="small muted">${esc([money(cap.normal)?`Antes ${fmt(money(cap.normal))}`:"",money(cap.entrada)!=null?`Entrada ${fmt(money(cap.entrada))}`:"",cap.plan,cap.regalo].filter(Boolean).join(" · "))}</div>`:""}
-    <div class="verdict ${vc}"><div class="v-t">${vt}</div>${vs?`<div class="v-s">${vs}</div>`:""}</div>
-    ${cmp?.enMaestro?`<div class="small muted">Ese modelo existe en Cresa (código <b>${esc(cmp.enMaestro)}</b>) pero no está en la lista de Black o no tiene stock.</div>`:""}
-  </section>`;
-  if(match)h+=`<section class="card"><div class="lbl">${({mismo_modelo:"Mismo modelo en Cresa",equivalente:"Equivalente en Cresa",parecido:"Lo más parecido que tenemos"})[cmp.matchTipo]||"En Cresa"}</div>
-    <div><strong>${esc(match.nombre)}</strong><div class="muted small">${esc([match.marca,"Código "+match.sku].filter(Boolean).join(" · "))}</div></div>
-    ${match.cadenas.length?`<div class="chains">${chainRows(match,cap)}</div>`:`<div class="banner">Sin precio Black cargado. Se vendió este mes.</div>`}
-    ${cmp.notaCredito?`<div class="small"><strong>Crédito:</strong> ${esc(cmp.notaCredito)}</div>`:""}</section>`;
-  const alts=(cmp?.alternativas||[]).map(a=>({a,g:S.bySku.get(String(a.sku))})).filter(x=>x.g);
-  if(alts.length)h+=`<section class="card"><div class="lbl">Alternativas para no perder la venta</div>`+alts.map(({a,g})=>{
-    const [pc,pt]=ALT[a.tipo]||["",a.tipo];const bc=g.best;
-    return `<div class="alt"><div class="alt-h"><div class="alt-n">${esc(g.nombre)}<div class="muted small" style="font-weight:500">${esc([g.marca,g.modelo,bc?.cadena].filter(Boolean).join(" · "))}</div></div><div class="alt-p num">${bc?fmt(bc.contado):'<span class="pill">sin precio</span>'}</div></div>
-      <div class="row"><span class="pill ${pc}">${esc(pt)}</span>${cuotaTxt(bc)?`<span class="small muted">${esc(cuotaTxt(bc))}</span>`:""}</div>
-      ${a.razon?`<div class="small">${esc(a.razon)}</div>`:""}</div>`;}).join("")+`</section>`;
-  const arg=cmp?.argumento||(isNew?"":speech(cap,match,{...cmp,alternativas:cmp?.alternativas||[]}));
-  if(arg)h+=`<section class="card"><div class="lbl">Qué decirle al cliente</div><div class="speech">${esc(arg)}</div>
-    <button class="btn ghost small" data-copy="${esc(arg)}">Copiar para WhatsApp</button></section>`;
-  if(isNew)h+=`<button class="btn block" id="again">Capturar otro precio</button>`;
-  return h;
-}
-const VER_OURS={nosotros:["v-good","Estamos más bajos"],igual:["v-warn","Mismo precio que la competencia"],ellos:["v-bad","La competencia está más baja"],sin_comp:["v-none","Sin capturas de la competencia"]};
-const NIV_TXT={mismo_modelo:["good","Mismo modelo"],equivalente:["brand","Equivalente"],parecido:["","Parecido"]};
-function resultOurs(g,ours,r,opts={}){
-  const [vc,vt]=VER_OURS[r.veredicto];
-  let vs="";
-  if(r.total)vs=`Más baratos que ${r.gana} de ${r.total} competidor${r.total>1?"es":""} capturado${r.total>1?"s":""}.`;
-  if(r.veredicto==="ellos"&&r.rival)vs=`${esc(r.rival.competidor)} está ${fmt(r.diff)} más abajo. ${vs}`;
-  if(r.veredicto==="sin_comp")vs="Nadie ha capturado este producto en la competencia todavía. Cuando alguien lo haga, aparecerá aquí.";
-  let h=`<section class="card">
-    <div class="row" style="justify-content:space-between"><span class="pill brand">${esc(ours?.cadena||"Cresa")}</span><span class="muted small">${esc(opts.ciudad||"")}${opts.creado?" · "+ago(opts.creado):""}</span></div>
-    <h2>${esc(g.nombre||"Producto")}</h2>
-    <div class="muted small">${esc([g.marca,g.sku?"Código "+g.sku:"Sin código Cresa identificado"].filter(Boolean).join(" · "))}</div>
-    <div class="tag ours"><span class="w">${esc(ours?.cadena||"Cresa")}${ours?.fuente==="foto"?" · foto":""}</span><span class="p">${ours?priceHTML(money(ours.contado)):"—"}</span><span class="c">${esc(cuotaTxt(ours))||"&nbsp;"}${money(ours?.entrada)!=null?` · entrada ${fmt(money(ours.entrada))}`:""}</span></div>
-    <div class="verdict ${vc}"><div class="v-t">${vt}</div>${vs?`<div class="v-s">${vs}</div>`:""}</div>
-  </section>`;
-  if(r.rows.length)h+=`<section class="card"><div class="lbl">Contra la competencia</div>`+r.rows.map(x=>{const c=x.c;const [nc,nt]=NIV_TXT[x.nivel];
-    const dc=x.dContado==null?"":Math.abs(x.dContado)<1?`<span class="pill warn">igual</span>`:`<span class="pill ${x.dContado<0?"good":"bad"}">${x.dContado<0?"Nosotros −":"Nosotros +"}${fmt(Math.abs(x.dContado))}</span>`;
-    const cuotaLinea=c.cuota!=null||ours?.cuota?`<div class="small">Cuota: <b>${esc(cuotaTxt(c))||"—"}</b> ellos · <b>${esc(cuotaTxt(ours))||"—"}</b> nosotros${x.dCuotaMes!=null&&Math.abs(x.dCuotaMes)>=0.5?` · <span class="${x.dCuotaMes<0?"diff good":"diff bad"}" style="display:inline">${x.dCuotaMes<0?"−":"+"}${fmt(Math.abs(Math.round(x.dCuotaMes)))} al mes</span>`:""}</div>`:"";
-    const plazo=plazoTxt(c)||plazoTxt(ours)?`<div class="small muted">Plazo: ${esc(plazoTxt(c)||"—")} ellos · ${esc(plazoTxt(ours)||"—")} nosotros${x.dTotal!=null?` · total a crédito ${x.dTotal<=0?"nuestro "+fmt(Math.abs(x.dTotal))+" menos":"nuestro "+fmt(x.dTotal)+" más"}`:""}${money(c.entrada)!=null?` · entrada ellos ${fmt(money(c.entrada))}`:""}</div>`:"";
-    return `<div class="alt"><div class="alt-h"><div class="alt-n">${esc(c.competidor)}<div class="muted small" style="font-weight:500">${esc([c.producto,c.ciudad||c.agencia,c.creado?ago(c.creado):""].filter(Boolean).join(" · "))}</div></div><div class="alt-p num">${fmt(c.contado)}</div></div>
-      <div class="row"><span class="pill ${nc}">${nt}</span>${dc}${c.regalo?`<span class="small muted">${esc(c.regalo)}</span>`:""}</div>${cuotaLinea}${plazo}</div>`;}).join("")+`</section>`;
-  if(g.cadenas?.length>1||(g.cadenas?.length&&g.cadenas[0].cadena!==ours?.cadena))h+=`<section class="card"><div class="lbl">Precio en nuestras cadenas</div><div class="chains">${chainRows(g,{})}</div></section>`;
-  if(r.alts.length)h+=`<section class="card"><div class="lbl">Alternativas para ofrecer</div>`+r.alts.map(a=>{const p=S.bySku.get(a.sku);if(!p)return "";const [pc,pt]=ALT[a.tipo]||["",a.tipo];const bc=p.best;
-    return `<div class="alt"><div class="alt-h"><div class="alt-n">${esc(p.nombre)}<div class="muted small" style="font-weight:500">${esc([p.marca,p.sku,bc?.cadena].filter(Boolean).join(" · "))}</div></div><div class="alt-p num">${fmt(bc?.contado)}</div></div>
-      <div class="row"><span class="pill ${pc}">${esc(pt)}</span>${cuotaTxt(bc)?`<span class="small muted">${esc(cuotaTxt(bc))}</span>`:""}</div><div class="small">${esc(a.razon)}</div></div>`;}).join("")+`</section>`;
-  if(r.argumento)h+=`<section class="card"><div class="lbl">Qué decirle al cliente</div><div class="speech">${esc(r.argumento)}</div><button class="btn ghost small" data-copy="${esc(r.argumento)}">Copiar para WhatsApp</button></section>`;
-  if(opts.isNew)h+=`<button class="btn block" id="again">Capturar otro precio</button>`;
-  return h;
-}
-function capFromRow(c){return {...c,competidor:c.competidor,contado:money(c.contado),normal:money(c.normal??c.antes),cuota:money(c.cuota),ncuotas:money(c.ncuotas??c.num_cuotas),entrada:money(c.entrada)};}
-function cmpFromRow(c){return {enMaestro:c.en_maestro_sin_stock||null,matchSku:c.sku_cresa||null,matchTipo:c.tipo_match||"mismo_modelo",veredicto:c.veredicto||"sin_match",diff:money(c.diferencia),mejorCadena:c.mejor_cadena,alternativas:Array.isArray(c.alternativas)?c.alternativas:[]};}
-function thumbSrc(c){return c._foto||(c.foto_id?`https://drive.google.com/thumbnail?id=${encodeURIComponent(c.foto_id)}&sz=w240`:"");}
 function itemHTML(c){
-  const [vc,vt]=(c.origen==="cresa"?VER_OURS:VER)[c.veredicto]||["v-none",""];const pc={"v-good":"good","v-bad":"bad","v-warn":"warn","v-none":""}[vc];const src=thumbSrc(c);
-  return `<button class="item" data-cap="${esc(c.id)}">
-    ${src?`<img class="thumb" src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`:`<div class="thumb"></div>`}
-    <div style="min-width:0"><div class="t">${esc(c.producto||"Sin nombre")}</div>
-      <div class="m">${c.origen==="cresa"?'<b>Cresa</b> · ':""}${esc(c.competidor)}${(c.ciudad||c.agencia)?" · "+esc(c.ciudad||c.agencia):""} · ${c._local?"por enviar":ago(c.creado)}</div>
-      ${vt?`<span class="pill ${pc}" style="margin-top:4px">${vt}</span>`:""}</div>
-    <div class="pr num">${fmt(money(c.contado))}${money(c.cuota)?`<div class="m" style="font-family:var(--f-body);font-weight:500">${esc(cuotaTxt(capFromRow(c)))}</div>`:""}</div></button>`;
+  const src=thumbSrc(c);
+  const precio=money(c.contado)!=null?fmt(money(c.contado)):(money(c.cuota)!=null?`${fmt(money(c.cuota))}/cuota`:"—");
+  const t=typeof c.fecha==="number"?c.fecha:(Date.parse(c.fecha)||Date.now());
+  return `<button class="item" data-edit="${esc(c.id)}">${src?`<img class="thumb" src="${esc(src)}" alt="" referrerpolicy="no-referrer">`:`<div class="thumb"></div>`}
+    <div style="min-width:0"><div class="t">${esc(c.producto||c.modelo||"Sin nombre")}</div>
+      <div class="m">${esc([c.marca,c.modelo].filter(Boolean).join(" · "))}</div>
+      <div class="m">${esc([c.competidor,c.agencia,ago(t)].filter(Boolean).join(" · "))}</div></div>
+    <div class="pr">${esc(precio)}</div></button>`;
 }
-function viewFeed(){
-  let h=setupBanner();const q=norm(S.feedQ);
-  const cdd=c=>c.ciudad||c.agencia||"";
-  const list=S.caps.filter(c=>(S.feedFilter==="Todas"||c.competidor===S.feedFilter)&&(!S.feedCiudad||cdd(c)===S.feedCiudad)&&(!q||norm([c.producto,c.marca,c.modelo,c.ciudad,c.agencia,c.categoria,c.autor].join(" ")).includes(q)));
-  const v=k=>list.filter(c=>(c.origen==="cresa"?{nosotros:"nosotros",ellos:"ellos"}[c.veredicto]:c.veredicto)===k).length;
-  h+=`<div class="stats"><div class="stat"><b class="num">${list.length}</b><span>capturas</span></div><div class="stat good"><b class="num">${v("nosotros")}</b><span>Cresa gana</span></div><div class="stat bad"><b class="num">${v("ellos")}</b><span>Competencia gana</span></div></div>
-  <div class="field"><label for="feedQ" class="lbl">Buscar en capturas</label><input id="feedQ" type="search" value="${esc(S.feedQ)}" placeholder="Producto, marca, ciudad…"></div>
-  <div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:8px"><div class="chips" style="min-width:0">${["Todas",...CFG.COMPETIDORES.concat(CFG.CADENAS).filter(t=>S.caps.some(c=>c.competidor===t))].map(t=>`<button class="chip" data-ff="${esc(t)}" aria-pressed="${S.feedFilter===t}">${esc(t)}</button>`).join("")}</div><button class="btn ghost small" id="reload" aria-label="Actualizar">↻</button></div>`;
-  const ciudades=[...new Set(S.caps.map(cdd).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
-  if(ciudades.length>1)h+=`<div class="chips">${["",...ciudades].map(c=>`<button class="chip" data-fc="${esc(c)}" aria-pressed="${(S.feedCiudad||"")===c}">${c?esc(c):"Todas las ciudades"}</button>`).join("")}</div>`;
-  if(!list.length)h+=`<div class="empty"><strong>${S.capsLoaded||!CFG.API_URL?"Todavía no hay capturas":"Cargando…"}</strong>Cada foto que tome el equipo en la competencia aparece aquí para todos.</div>`;
-  else h+=`<div class="feed">${list.map(itemHTML).join("")}</div>`;
+function viewMis(){
+  if(S.editing){
+    const c=S.editing;
+    const d={...c,ncuotas:c.num_cuotas!=null&&c.num_cuotas!==""?c.num_cuotas:c.ncuotas,competidor:c.competidor,agencia:c.agencia};
+    return `<button class="btn ghost small" id="volverMis" style="align-self:flex-start">← Mis capturas</button>`+reviewForm(d,{editing:true,thumb:thumbSrc(c),tienda:c.competidor});
+  }
+  const mias=S.mis.filter(c=>c.autor===S.perfil.nombre);
+  let h=`<section class="card"><div class="row" style="justify-content:space-between"><h2>Mis capturas</h2>
+      <button class="btn ghost small" id="refrescarMis">Actualizar</button></div>
+      <div class="small muted">Toca una captura para revisarla o corregirla. El cambio se guarda en el Sheet.</div>
+      ${S.misMsg?`<div class="small muted">${esc(S.misMsg)}</div>`:""}</section>`;
+  if(!mias.length)h+=`<div class="empty"><strong>Aún no hay capturas</strong>Toma tu primera foto en la pestaña Capturar.</div>`;
+  else h+=`<div class="feed">${mias.slice(0,200).map(itemHTML).join("")}</div>`;
   return h;
 }
-function sheet(inner){$("#sheet").innerHTML=`<div class="sheet-bg" data-close="1"><div class="sheet" role="dialog">${inner}</div></div>`;}
-function thumbBig(c){const b=c._foto||(c.foto_id?`https://drive.google.com/thumbnail?id=${encodeURIComponent(c.foto_id)}&sz=w1000`:"");return b?`<img class="preview" src="${esc(b)}" alt="Foto del preciador" referrerpolicy="no-referrer">`:"";}
-function openProduct(sku){
-  let g=S.bySku.get(sku);
-  if(!g){const ms=maestroDe(sku);if(!ms)return;g=finGrupo(grupoDesdeMaestro(ms));g.fueraBlack=true;}
-  const ours=g.best?{...g.best}:null;
-  const r=vsCompetencia(g,ours);
-  sheet(`${g.fueraBlack?`<div class="banner">Este código existe en Cresa pero no está en la lista de Black ni se vendió este mes.</div>`:g.sinPrecio?`<div class="banner">Lo tenemos (se vendió este mes) pero no hay precio Black. Toma foto a su preciador en tienda para guardarlo.</div>`:""}
-    ${resultOurs(g,ours,r,{})}<button class="btn small block" data-close="1">Cerrar</button>`);
+
+/* ============ render ============ */
+function renderTabs(){
+  $("#tabs").innerHTML=[["capturar","Capturar",ICON.cam],["mis","Mis capturas",ICON.list]]
+    .map(([k,l,i])=>`<button class="tab" data-tab="${k}" aria-current="${S.tab===k}">${i}<span>${l}</span></button>`).join("");
 }
-function openCap(id){
-  const c=S.caps.find(x=>String(x.id)===String(id));if(!c)return;
-  const cap=capFromRow(c);
-  if(c.origen==="cresa"){const g=(c.sku_cresa&&S.bySku.get(String(c.sku_cresa)))||finGrupo({sku:c.sku_cresa||"",modelo:c.modelo,nombre:c.producto,marca:c.marca,categoria:c.categoria,cadenas:[]});
-    const ours={cadena:c.competidor,contado:cap.contado,cuota:cap.cuota,ncuotas:cap.ncuotas,frecuencia:c.frecuencia,entrada:cap.entrada,plan:c.plan,promo:c.regalo};
-    return sheet(`${thumbBig(c)}${resultOurs(g,ours,vsCompetencia(g,ours),{ciudad:c.ciudad||c.agencia,creado:c.creado})}<div class="row">${c.autor?`<span class="muted small">Capturado por ${esc(c.autor)}</span>`:""}<button class="btn small" data-close="1" style="margin-left:auto">Cerrar</button></div>`);}
-  const cmp=cmpFromRow(c);
-  const big=c._foto||(c.foto_id?`https://drive.google.com/thumbnail?id=${encodeURIComponent(c.foto_id)}&sz=w1000`:"");
-  $("#sheet").innerHTML=`<div class="sheet-bg" data-close="1"><div class="sheet" role="dialog" aria-label="Detalle de captura">
-    ${big?`<img class="preview" src="${esc(big)}" alt="Foto del preciador" referrerpolicy="no-referrer">`:""}
-    ${resultView(cap,cmp,false)}
-    <div class="row">${c.autor?`<span class="muted small">Capturado por ${esc(c.autor)}</span>`:""}<button class="btn small" data-close="1" style="margin-left:auto">Cerrar</button></div>
-  </div></div>`;
+function renderNet(){
+  const q=queue().length;
+  $("#net").className="net"+(S.online?"":" off");
+  $("#who").textContent=(S.perfil?.nombre||"")+(S.agencia&&S.perfil?" · "+S.agencia:"")+(q?` · ${q} por enviar`:"");
 }
-function viewSearch(){
-  let h=`<div class="field"><label for="sq" class="lbl">Código o producto de Cresa</label><input id="sq" type="search" value="${esc(S.searchQ)}" placeholder="Ej. SMCAS122IGL o refrigeradora 14 pies" autocapitalize="characters"></div>
-  <p class="muted small" style="margin:0">Toca un producto para ver cómo está frente a la competencia.</p>`;
-  if(!S.catalog.length)return h+`<div class="empty"><strong>Catálogo vacío</strong>Negocios debe cargar los precios de Black en el Google Sheet.</div>`;
-  const q=norm(S.searchQ).split(/[^a-z0-9]+/).filter(t=>t.length>1);
-  const qc=compact(S.searchQ);
-  let res=(q.length?S.catalog.filter(g=>q.every(t=>g.key.includes(t))||(qc.length>=4&&compact(g.sku).includes(qc))):S.catalog);
-  res=res.sort((a,b)=>((qc&&compact(b.sku)===qc)-(qc&&compact(a.sku)===qc))||((b.min!=null)-(a.min!=null))).slice(0,40);
-  // códigos que existen en el maestro pero no están en Black ni vendidos
-  const extra=qc.length>=4&&MAESTRO.listo?MAESTRO.lista.filter(r=>!S.bySku.has(r.cod)&&compact(r.cod).includes(qc)).slice(0,5):[];
-  h+=`<div class="row" style="justify-content:space-between"><span class="muted small">${q.length?res.length+" resultados":S.conPrecio+" con precio Black · "+(S.catalog.length-S.conPrecio)+" vendidos sin precio"}${S.catUpdated?" · actualizado "+ago(S.catUpdated):""}</span><button class="btn ghost small" id="catReload">Actualizar precios</button></div>`;
-  const nComp=g=>{const r=vsCompetencia(g,g.best);return r.total?` · <span class="pill ${r.veredicto==="nosotros"?"good":r.veredicto==="ellos"?"bad":"warn"}">${r.gana}/${r.total} más baratos</span>`:"";};
-  h+=res.map(g=>`<section class="card" data-prod="${esc(g.sku)}" role="button" tabindex="0" style="cursor:pointer"><div><strong>${esc(g.nombre)}</strong><div class="muted small">${esc([g.marca,g.categoria,"Código "+g.sku].filter(Boolean).join(" · "))}${q.length?nComp(g):""}</div></div>${g.cadenas.length?`<div class="chains">${chainRows(g,{})}</div>`:`<span class="pill">Vendido este mes · sin precio Black</span>`}</section>`).join("");
-  if(extra.length)h+=`<div class="lbl">Fuera de Black (sin stock)</div>`+extra.map(r=>`<section class="card" data-prod="${esc(r.cod)}" role="button" tabindex="0" style="cursor:pointer"><div><strong>${esc(prettyName(r))}</strong><div class="muted small">${esc([r.marca,"Código "+r.cod].join(" · "))}</div></div><span class="pill">No está en Black ni en vendidos</span></section>`).join("");
-  return h;
+function render(){
+  renderTabs();renderNet();
+  $("#app").innerHTML=!S.perfil?viewOnboard():(S.tab==="mis"?viewMis():viewCapture());
 }
 
 /* ============ eventos ============ */
-document.addEventListener("click",async e=>{
-  const t=e.target.closest("button,[data-close],[data-prod]");if(!t)return;const d=t.dataset;
-  if(d.prod&&t.tagName!=="BUTTON"){openProduct(d.prod);return;}
-  if(d.tab){S.tab=d.tab;render();window.scrollTo(0,0);if(d.tab==="competencia")loadCaps();return;}
-  if(d.tienda){S.tienda=d.tienda;ls.set("ch_tienda",S.tienda);if(S.flow==="idle"){render();return;}document.querySelectorAll("[data-tienda]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tienda===S.tienda));
-    if(S.flow==="review"){S.draft={...S.draft,...readFormRaw(),_tiendaDet:null};render();}return;}
-  if(d.prod){openProduct(d.prod);return;}
-  if(d.ff){S.feedFilter=d.ff;render();return;}
-  if(d.fc!=null){S.feedCiudad=d.fc;render();return;}
-  if(d.cap){openCap(d.cap);return;}
-  if(d.copy!=null){copy(d.copy);return;}
-  if(d.close&&(e.target===t||t.tagName==="BUTTON")){$("#sheet").innerHTML="";return;}
+$("#app").addEventListener("click",e=>{
+  const t=e.target.closest("button,[data-edit],[data-tienda]");
+  if(!t)return;
+  if(t.dataset.tienda){S.tienda=t.dataset.tienda;ls.set("ch_tienda",S.tienda);render();return;}
+  if(t.dataset.edit){S.editing=S.mis.find(c=>c.id===t.dataset.edit)||null;render();return;}
   switch(t.id){
-    case "o-ok":{
-      const nombre=$("#o-nombre").value.trim(),pin=$("#o-pin").value.trim();
-      if(!nombre)return toast("Escribe tu nombre");
-      S.perfil={nombre,pin};
-      if(CFG.API_URL){t.disabled=true;try{await apiGet("ping");}catch(err){t.disabled=false;return toast(err.message==="pin"?"PIN incorrecto":"Sin conexión. Intenta de nuevo con señal.");}}
-      ls.set("ch_perfil",S.perfil);render();loadCatalog(true);loadCaps();actualizarCiudad();break;}
-    case "manual":S.photo=null;S.photoUrl="";S.draft={};S.flow="review";render();break;
-    case "save":onSave();break;
-    case "cancel":S.flow="idle";S.photo=null;S.photoUrl="";render();break;
-    case "again":S.flow="idle";S.result=null;S.photo=null;S.photoUrl="";render();window.scrollTo(0,0);break;
-    case "ubicar":t.disabled=true;await actualizarCiudad(true);t.disabled=false;if(!S.ciudad)toast("Activa la ubicación del navegador o elige la ciudad al revisar");else{toast("Ciudad: "+S.ciudad);render();}break;
-    case "reload":loadCaps().then(()=>toast("Actualizado"));break;
-    case "catReload":loadCatalog(true);break;
+    case"entrar":return entrar();
+    case"manual":if(!S.agencia){toast("Elige primero la agencia donde estás");return;}return escribirManual();
+    case"save":return S.editing?guardarEdicion():guardarCaptura();
+    case"cancel":if(S.editing){S.editing=null;render();return;}S.hecha++;return siguiente();
+    case"volverMis":S.editing=null;render();return;
+    case"refrescarMis":return cargarMis();
   }
 });
-document.addEventListener("change",e=>{if(e.target.id==="cam")onPhoto(e.target.files[0]);});
-document.addEventListener("input",e=>{
-  const id=e.target.id;if(id!=="feedQ"&&id!=="sq")return;
-  if(id==="feedQ")S.feedQ=e.target.value;else S.searchQ=e.target.value;
-  const pos=e.target.selectionStart;render();const i=$("#"+id);i.focus();i.setSelectionRange(pos,pos);
+$("#app").addEventListener("change",e=>{
+  const id=e.target.id;
+  if(id==="cam"||id==="gal"){
+    if(!S.agencia){toast("Elige primero la agencia donde estás");e.target.value="";return;}
+    const arr=[...e.target.files];e.target.value="";
+    if(arr.length)empezarFotos(arr);
+    return;
+  }
+  if(id==="ag-sel"||id==="ag-txt"){
+    S.agencia=e.target.value.trim();ls.set("ch_agencia",S.agencia);renderNet();
+    if(S.flow==="review")render();
+  }
 });
-addEventListener("online",()=>{S.online=true;renderNet();flushQueue();});
-addEventListener("offline",()=>{S.online=false;renderNet();});
-setInterval(()=>{if(document.visibilityState==="visible"){flushQueue();if(S.tab==="competencia")loadCaps();}},60000);
+$("#app").addEventListener("input",e=>{if(e.target.id==="ag-txt"){S.agencia=e.target.value.trim();ls.set("ch_agencia",S.agencia);renderNet();}});
+$("#tabs").addEventListener("click",e=>{
+  const t=e.target.closest("[data-tab]");if(!t)return;
+  S.tab=t.dataset.tab;S.editing=null;
+  if(S.tab==="mis"){render();cargarMis();return;}
+  render();
+});
+async function entrar(){
+  const nombre=$("#ob-nombre").value.trim(),pin=$("#ob-pin").value.trim();
+  if(!nombre||!pin){toast("Escribe tu nombre y el PIN");return;}
+  S.perfil={nombre,pin};ls.set("ch_perfil",S.perfil);render();
+  try{await apiGet("capturas","&n=1");toast(`Hola, ${nombre.split(" ")[0]}`);flushQueue();cargarMis();}
+  catch(e){
+    if(String(e.message)==="pin"){S.perfil=null;ls.set("ch_perfil",null);toast("El PIN no coincide");render();}
+    else toast("Entraste sin señal: se verifica cuando haya conexión");
+  }
+}
+window.addEventListener("online",()=>{S.online=true;renderNet();flushQueue();});
+window.addEventListener("offline",()=>{S.online=false;renderNet();});
+setInterval(()=>{if(document.visibilityState==="visible")flushQueue();},60000);
+renderTabs();render();
+if(S.perfil){flushQueue();}
 
-/* ============ arranque ============ */
-loadMaestro();
-if(S.perfil?.pin)actualizarCiudad();
-loadCatalog(false).then(()=>{render();flushQueue();loadCaps();});
-render();
 </script>
 </body>
 </html>

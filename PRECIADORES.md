@@ -46,3 +46,12 @@ Referencia para el prompt de la IA (`promptLectura_` en `apps-script/Code.gs`) y
 - Si hay cuota: el precio de cuota, el plazo (12 meses, x 12) y el de contado juntos, con su rótulo.
 - Si la hoja de crédito está aparte, fotografiarla también.
 - De frente, de cerca, sin reflejo. Una etiqueta por foto.
+
+## Dos "PVP" distintos (importante)
+
+La palabra PVP aparece con dos significados:
+
+- **PVP en una hoja de crédito** (ej. la hoja de La Ganga con PVP* $714.49, cuota $30.27 × 24 y precio final $726.48): es el precio de lista del producto. Va a `pvp_lista`.
+- **PVP en una etiqueta** junto a una OFERTA o PROMO (ej. Warienhaus: PVP 103.02 y OFERTA 44): es el precio anterior. Va a `precio_antes`.
+
+El **precio final** es el total a crédito (cuota × plazo, más entrada si la hay). Va a `precio_final` y nunca es contado. En el ejemplo: 30.27 × 24 = 726.48, así que la app lo verifica y avisa si no cuadra.

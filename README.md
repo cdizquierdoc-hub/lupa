@@ -99,7 +99,9 @@ En este punto la app ya abre y compara contra lo vendido del mes, pero todavía 
 2. Pega la URL entre las comillas de `API_URL: ""`.
 3. **Commit changes**. En 1 o 2 minutos la app ya guarda en el Sheet.
 
-### Paso 7 · Cargar los precios de Black
+### Paso 7 · Catálogo de Black (opcional, ya no lo usa la app)
+
+La app ya no compara con nuestros precios, así que este paso es opcional. La pestaña **Catalogo** queda por si algún día se vuelve a necesitar.
 
 En la pestaña **Catalogo**, una fila por **código y cadena**. Solo son obligatorias las tres primeras columnas:
 
@@ -140,31 +142,17 @@ Nota: en el nivel gratis Google puede usar las fotos para mejorar sus productos;
 
 ## Cada mes
 
-- **Vendidos:** reemplaza `vendidos.tsv` en GitHub (*Add file → Upload files*). Mismo formato que el Excel que exportas:
+- **Vendidos y maestro:** ya no los usa la app de captura; se pueden dejar o borrar. Si los necesitas de nuevo, el formato es este (*Add file → Upload files*):
   `cod · desc · marca · cap · sub · linea · grupo` separados por tabulador, con encabezado.
-- **Maestro:** si PILAS agrega códigos nuevos, reemplaza `maestro.tsv` con el nuevo.
 - Si cambias `Code.gs`: **Implementar → Administrar implementaciones → ✏️ → Versión: nueva** (así la URL no cambia).
 
 ## Uso en tienda
 
-**Foto a la competencia** (elige Artefacta, Marcimex…):
-foto al preciador → revisa los datos → **Comparar y guardar**. Sale el precio de ellos frente al nuestro por cadena, el veredicto, hasta 3 alternativas y el texto para el cliente.
+1. **Agencia:** elige arriba la agencia donde estás hoy. Se recuerda la última.
+2. **Capturar:** elige el competidor (o nuestra cadena) → toma la foto o elige varias de la galería → revisa los datos → **Guardar y seguir**. Si son varias, pasan una por una.
+3. **Mis capturas:** tus últimas capturas. Toca una para corregirla; el cambio se guarda también en el Sheet (solo quien capturó puede cambiarla).
 
-**Foto a nuestro preciador** (elige Crecos, Orve Hogar, Japón…):
-foto → revisa (el campo dice *Código Cresa*) → **Guardar y comparar con la competencia**. Sale:
-- nuestro precio frente a lo que el equipo ya capturó en cada competidor (mismo modelo, equivalente o parecido),
-- diferencia de contado, de cuota al mes, plazo (meses, semanas o quincenas) y total a crédito,
-- si estamos más altos o más bajos ("más baratos que 2 de 3 competidores"),
-- si alguien está más bajo: alternativas nuestras más baratas o con mejor crédito,
-- el texto para el cliente.
-
-Ese precio **queda guardado como precio Cresa** de esa cadena (marcado "foto") y se usa en las comparaciones de todos. Si Negocios carga el precio Black de esa cadena, manda el de Negocios.
-
-**Nuestros precios**: escribe un código (ej. `SMCAS122IGL`) o un producto y toca el resultado para ver cómo está frente a la competencia. También encuentra códigos que existen en Cresa pero no están en Black.
-
-**Competencia**: todo lo capturado por el equipo, de la competencia y de nuestras cadenas, con filtros por cadena y por ciudad.
-
-**Cadena y ciudad**: la cadena la lee la IA del cartel (y se puede cambiar con los botones); la ciudad sale de la ubicación del teléfono comparada con una lista de ciudades del Ecuador dentro de la app (sin servicios externos). Si no hay permiso de ubicación, se elige de la lista. En el Sheet la ciudad queda en la tercera columna de **Capturas**; puedes cambiar ese encabezado de `agencia` a `ciudad`.
+La app no muestra comparaciones ni precios nuestros: solo sirve para capturar. Todo queda en la pestaña **Capturas** del Sheet, con precio de contado, PVP de lista, precio antes, cuota, plazo, precio final a crédito y las características (litros, BTU, pulgadas, kilos, pies cúbicos, watts y tecnología) para comparar después.
 
 Sin señal: se guarda en el teléfono y se envía solo cuando vuelve la conexión.
 
