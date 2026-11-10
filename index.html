@@ -165,7 +165,7 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
 <script src="config.js?v=2026.11.09-8"></script>
 <script>
 /* ============ configuración (config.js) ============ */
-const VERSION="2026.11.09-8";
+const VERSION="2026.11.10-1";
 const CFG=Object.assign({
   API_URL:"https://script.google.com/macros/s/AKfycbxVPV8O8qQpirRpsYI6228qiYEihwPitAvIew0lJgE_FLygEm8mFU9wIEIA6yY4jVM0Ow/exec",
   COMPETIDORES:["Artefacta","Marcimex","Comandato","Almacenes España","Jaher","Al Precio","Tía","Pycca","La Ganga","Otro"],
@@ -563,7 +563,7 @@ function draftDesdeIA(d){
     categoria:CATEGORIAS.includes(d.categoria)?d.categoria:(Matcher.catFromText([d.categoria,d.producto].join(" "))||""),
     contado:num(d.precio_contado),normal:num(d.precio_antes),cuota:num(d.cuota),ncuotas:num(d.num_cuotas),
     frecuencia:FRECUENCIAS.includes(norm(d.frecuencia||""))?norm(d.frecuencia):"",entrada:d.entrada===0||d.entrada==="0"?0:num(d.entrada),
-    plan:d.plan_credito||"",regalo:d.regalo||"",legible:d.legible!==false,_leido:true,_ia:true};
+    plan:d.plan_credito||"",regalo:d.regalo||"",legible:d.legible!==false,_leido:true,_ia:true,_aviso:d.aviso||""};
   // regla de oro: una cuota nunca es precio de contado
   if(out.cuota!=null&&out.contado!=null&&Math.abs(out.cuota-out.contado)<0.01)out.contado=null;
   if(out.normal!=null&&out.contado!=null&&out.normal<out.contado){const t=out.normal;out.normal=out.contado;out.contado=t;}
@@ -709,6 +709,11 @@ function viewCapture(){
     h+=`<section class="card"><div class="shoot"><div class="big">${ICON.cam}</div><strong>Foto al preciador</strong>
       <span class="muted small">Acércate para que el precio llene la foto. Una etiqueta por foto, sin reflejo.</span>
       <input id="cam" type="file" accept="image/*" capture="environment" aria-label="Tomar foto del preciador"></div>
+      <div class="small muted" style="line-height:1.5;margin-top:4px"><b>Para que LUPA lo lea bien:</b>
+        <br>• Que salgan completos el nombre del producto y el precio grande.
+        <br>• Si hay cuota: que salgan juntos el precio de cuota, el plazo (12 meses, x 12) y el precio de contado, con su rótulo («contado», «PVP», «cuotas»).
+        <br>• Si la hoja de crédito está aparte del producto, fotografíala también.
+        <br>• De frente, de cerca y sin reflejo. Una etiqueta por foto.</div>
       <button class="btn ghost block" id="manual">Escribir a mano, sin foto</button></section>`;
     const mine=S.caps.filter(c=>c.autor&&c.autor===S.perfil?.nombre).slice(0,3);
     if(mine.length)h+=`<section class="card"><div class="lbl">Tus últimas capturas</div><div class="feed">${mine.map(itemHTML).join("")}</div></section>`;
@@ -724,12 +729,18 @@ function reviewForm(){
   const has=k=>d[k]!=null&&d[k]!=="";
   const credito=has("cuota")||has("ncuotas")||has("frecuencia")||has("entrada")||has("plan");
   const extra=has("normal")||has("regalo");
+  const av=[];
+  if(d._aviso)av.push(d._aviso);
+  if(has("cuota")&&!has("contado"))av.push("Solo hay cuota: confirma si el cartel tiene precio de contado.");
+  if(has("cuota")&&!has("ncuotas"))av.push("Falta el número de cuotas (plazo).");
+  if(!has("contado")&&!has("cuota"))av.push("No se leyó ningún precio: escríbelo a mano o toma otra foto.");
+  const avisos=av.length?`<div class="banner"><b>Revisa antes de guardar:</b><ul style="margin:6px 0 0 18px;padding:0">${av.map(a=>`<li>${esc(a)}</li>`).join("")}</ul></div>`:"";
   const origen=d._ia?`<span class="pill good">Leído con IA</span>`:d._basico?`<span class="pill warn">Lector básico</span>`:"";
   const iaNota=d._basico?`<div class="banner"><b>No se usó la IA:</b> ${esc(iaErrTxt(S.iaError))}${S.iaDetalle?`<br><small style="word-break:break-word">Detalle: ${esc(S.iaDetalle)}</small>`:""}<br>El lector básico no entiende letra a mano; revisa bien o escribe los datos.</div>`:"";
   return `<section class="card">
     ${S.photoUrl?`<img class="preview" src="${S.photoUrl}" alt="Foto del preciador">`:""}
     <div><h2>Revisa los datos</h2><div class="row" style="margin-top:6px">${esCresa(S.tienda)?`<span class="pill brand">Preciador de ${esc(S.tienda)}${S.ciudad?" · "+esc(S.ciudad):""}</span>`:`<span class="pill">${esc(S.tienda)}${S.ciudad?" · "+esc(S.ciudad):""}</span>`}${d._tiendaDet?`<span class="pill">detectado en el cartel</span>`:""}${origen}</div></div>
-    ${iaNota}${d._leido&&d.legible===false?`<div class="banner">No se lee bien. Toma otra foto más de cerca o escribe los datos.</div>`:""}
+    ${iaNota}${avisos}${d._leido&&d.legible===false?`<div class="banner">No se lee bien. Toma otra foto más de cerca o escribe los datos.</div>`:""}
     <div class="grid2">
       <div class="field full"><label for="f-ciudad">Ciudad</label><select id="f-ciudad"><option value="">— Elige la ciudad —</option>${CIUDADES_ORDEN.concat(["Otra"]).map(c=>`<option ${c===S.ciudad?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
       <div class="field full"><label for="f-producto">Producto</label><input id="f-producto" value="${esc(d.producto)}" placeholder="TV 43 pulgadas FHD"></div>

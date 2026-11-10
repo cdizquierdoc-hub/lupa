@@ -33,7 +33,7 @@
   }
 
   const CTX = {
-    cuota: /cuota|semanal|quincenal|mensual|al mes|por semana|x\s*\d{1,2}\s*(meses|semanas|quincenas|pagos|cuotas)?\b|\b\d{1,2}\s*x\b|semanas|meses|quincenas|pagos de|desde/,
+    cuota: /cuota|semanal|quincenal|mensual|al mes|por semana|x\s*\d{1,2}\s*(meses|semanas|quincenas|pagos|cuotas)?\b|\b\d{1,2}\s*x\b|semanas|meses|quincenas|pagos de|desde|ganguita|emma|credito/,
     normal: /antes|pvp|p\.v\.p|normal|regular|precio de lista|precio anterior|de:/,
     ahorro: /ahorr|descuento de|dcto|desc\./,
     entrada: /entrada|inicial|abono/,
@@ -77,6 +77,8 @@
       const c = norm(lines[a.i].text);
       if (CTX.ahorro.test(c)) a.kind = "ahorro";
       else if (CTX.entrada.test(c)) a.kind = "entrada";
+      // rótulos de precio de contado que van junto a un "llévalo en cuotas" (ej. Artefacta: "precio ahorro")
+      else if (/precio ahorro|precio final|contado|ganga|oferta/.test(c) && !/cuota|mes|meses/.test(c)) a.kind = "contado";
       else if (CTX.cuota.test(c)) a.kind = "cuota";
       else if (CTX.normal.test(c)) a.kind = "normal";
       else if (CTX.contado.test(c)) a.kind = "contado";
@@ -146,14 +148,14 @@
     const cleanLine = s => s.replace(/\$\s*[\d.,]+/g, "").replace(/\s{2,}/g, " ").replace(/^[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9]+|[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9"]+$/g, "").trim();
     if (bestLine) out.producto = cleanLine(bestLine);
     if (!out.producto) {
-      const cand = lines.map(l => cleanLine(l.text)).filter(t => (t.match(/[A-Za-zÁÉÍÓÚÑáéíóúñ]{3,}/g) || []).length >= 2 && !CTX.cuota.test(norm(t)) && !CTX.normal.test(norm(t)));
+      const cand = lines.map(l => cleanLine(l.text)).filter(t => (t.match(/[A-Za-zÁÉÍÓÚÑáéíóúñ]{3,}/g) || []).length >= 2 && !CTX.cuota.test(norm(t)) && !CTX.normal.test(norm(t)) && !/precio|llevalo|contado|oferta|ganga|black|emma/.test(norm(t)));
       out.producto = cand.sort((a, b) => b.length - a.length)[0] || "";
     }
     out.producto = out.producto.slice(0, 90);
     // ---- plan y regalo
     const planL = lines.find(l => /credito|financ|tarjeta|diferido|sin intereses|sin entrada|directo/.test(norm(l.text)));
     if (planL) out.plan = cleanLine(planL.text).slice(0, 80);
-    const regL = lines.find(l => /gratis|regalo|lleva|obsequio|combo|\+ ?\w+ de regalo|2x1/.test(norm(l.text)));
+    const regL = lines.find(l => /gratis|regalo|\blleva\b|obsequio|combo|\+ ?\w+ de regalo|2x1/.test(norm(l.text)));
     if (regL) out.regalo = cleanLine(regL.text).slice(0, 80);
     out.legible = !!(out.contado || out.cuota || out.producto);
     return out;

@@ -17,7 +17,7 @@
  *  - Config   : PIN del equipo.
  */
 
-const VERSION_SCRIPT = '2026.11.09-ia3';
+const VERSION_SCRIPT = '2026.11.10-ia4';
 const HOJA_CATALOGO = 'Catalogo';
 const HOJA_CAPTURAS = 'Capturas';
 const HOJA_CONFIG = 'Config';
@@ -95,29 +95,46 @@ function promptLectura_(listas) {
   const cats = (listas.categorias || []).join(', ');
   const tiendas = (listas.tiendas || []).join(', ');
   return [
-    'Eres un asistente de un retail de electrodomésticos en Ecuador. La foto muestra un preciador o cartel de precio,',
-    'impreso o escrito a mano, a veces pegado sobre la caja del producto.',
-    'Extrae SOLO lo que se puede leer o ver en la foto. Si algo no se ve, usa null. No inventes ni completes con conocimiento externo.',
-    'Puedes usar lo impreso en la caja (marca, serie, pulgadas, tecnología) para describir el producto.',
+    'Eres el lector de preciadores de Cresa, un retail de electrodomésticos en Ecuador.',
+    'La foto muestra un preciador, cartel o etiqueta de precio: impreso, digital, de tinta electrónica o escrito a mano, a veces pegado sobre la caja.',
+    'Extrae SOLO lo que se ve en la foto. Si algo no se ve, usa null. No inventes ni completes con conocimiento externo.',
+    '',
+    'Tipos de preciador frecuentes (reconócelos y lee cada número según su rótulo):',
+    '1) Etiqueta de tinta electrónica (blanca con marco, sin logo): arriba el nombre del producto; "PVP" con un precio más pequeño o tachado = precio_antes; el número grande con "OFERTA" = precio_contado; el código va pequeño al pie.',
+    '2) Sticker de precio (redondo o de color) con "PRECIO" y el nombre de la tienda: el número grande es precio_contado. Si hay una leyenda con "CONTADO" y "CUOTA CRÉDITO", cada número va con su rótulo: el que está junto a CONTADO es precio_contado y el que está junto a CUOTA es cuota.',
+    '3) Sticker de campaña (ej. "Black Days", "Unidades limitadas") sobre una tarjeta con un precio grande: ese precio es precio_contado. La línea de abajo trae el modelo y la descripción: codigo = modelo; producto = descripción corta.',
+    '4) Hoja de crédito (tabla con PVP, CUOTA INICIAL, CUOTA MENSUAL, NO. DE CUOTAS, PRECIO FINAL): PVP = precio_contado (o precio_antes si dice antes); CUOTA INICIAL = entrada; CUOTA MENSUAL = cuota; NO. DE CUOTAS = num_cuotas; PRECIO FINAL = plan_credito como texto ("precio final a crédito 1699.99"), nunca como contado. Si esa hoja aparece cortada, no inventes sus campos: escribe un aviso.',
+    '5) Caja digital o cartel con un número grande y la frase "llévalo en cuotas" o un logo de crédito (ej. "emma"): si el número dice "precio ahorro", "precio contado" o no tiene rótulo de cuota, es precio_contado. La frase "llévalo en cuotas" por sí sola NO convierte el número en cuota. Si el cartel habla de cuotas pero el número no dice si es contado o cuota, ponlo como precio_contado y escribe aviso.',
+    '',
+    'Rótulos:',
+    '- Contado: contado, precio contado, precio ahorro, precio final (sin palabras de cuota), efectivo, oferta, precio Ganga, precio Black, o un número grande sin rótulo de crédito.',
+    '- Antes: PVP, antes, precio normal, precio de lista, o precio tachado (con raya).',
+    '- Cuota: cuota, cuotas, al mes, mensual, quincenal, semanal, x 12, a 12 meses, crédito, emma, Ganguita, desde ... al mes.',
+    '- Entrada: entrada, cuota inicial, inicial, abono.',
+    '- Número de cuotas: "12 cuotas", "x 12", "a 12 meses", "NO. DE CUOTAS".',
+    '- Frecuencia de la cuota: mensual si dice mes; quincenal si dice quincena; semanal si dice semana.',
+    '- Regalo o promo: gratis, regalo, lleva, obsequio, 2x1, combo, bono.',
     '',
     'Reglas de precios (muy importante):',
     '- Un precio que aparece solo, sin palabras de crédito, es PRECIO DE CONTADO.',
-    '- Es CRÉDITO solo si el cartel dice cuota, cuotas, meses, semanas, quincenas, semanal, mensual, "x 12", "desde ... al mes" o similar.',
+    '- Un número unido a una palabra de crédito (cuota, Ganguita, mes, meses, x 12) es CUOTA, nunca contado.',
     '- Nunca pongas una cuota en precio_contado ni el precio de contado en cuota.',
-    '- precio_antes solo si hay un precio tachado o que diga antes/PVP/precio normal.',
-    '- Los precios van como número en dólares (250, 1299.99), sin símbolo.',
+    '- precio_antes solo si hay PVP, antes, precio normal, de lista o precio tachado.',
+    '- Si solo se ve una cuota y no hay precio de contado, pon precio_contado null y escribe aviso: "Solo se ve la cuota: confirma si hay precio de contado".',
+    '- Si se ve la cuota pero no el número de cuotas, num_cuotas null y aviso.',
+    '- Los precios van como número en dólares con punto decimal (250, 1299.99), sin símbolo.',
     '',
     'Otros campos:',
-    '- tienda: la cadena que pone el cartel si se ve su nombre o logo. Opciones conocidas: ' + tiendas + '. Si no se ve, null.',
-    '- codigo: el código o modelo tal como está escrito (a mano o impreso), respetando letras, números y guiones.',
+    '- tienda: la cadena si se ve su nombre o logo. Opciones conocidas: ' + tiendas + '. Si no se ve, null.',
+    '- codigo: el código o modelo tal como está escrito, respetando letras, números y guiones. Si no se lee, null.',
     '- categoria: una de: ' + cats + '.',
-    '- producto: descripción corta y clara (tipo + marca + medida + tecnología), por ejemplo "TV Philips 43\" FHD LED Smart TV".',
-    '- frecuencia de la cuota: mensual, quincenal o semanal; null si no se sabe.',
-    '- regalo: regalos o promos extra que diga el cartel (ej. "Remate de bodega", "lleva licuadora gratis").',
+    '- producto: descripción corta (tipo + marca + medida + tecnología), por ejemplo "TV Philips 43\" FHD LED Smart TV".',
+    '- regalo: regalo o promo que diga el cartel, o null.',
+    '- aviso: null si todo se lee claro. Si hay cualquier duda, escribe UNA frase corta en español (máximo 140 caracteres) explicando qué no quedó claro: foto cortada, reflejo, dos productos, cuota sin contado, número sin rótulo, código ilegible, etc.',
     '',
     'Responde SOLO con este JSON:',
     '{"tienda":null,"producto":null,"marca":null,"codigo":null,"categoria":null,"precio_contado":null,"precio_antes":null,',
-    '"cuota":null,"num_cuotas":null,"frecuencia":null,"entrada":null,"plan_credito":null,"regalo":null,"legible":true}'
+    '"cuota":null,"num_cuotas":null,"frecuencia":null,"entrada":null,"plan_credito":null,"regalo":null,"aviso":null,"legible":true}'
   ].join('\n');
 }
 
