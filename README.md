@@ -142,6 +142,8 @@ Nota: en el nivel gratis Google puede usar las fotos para mejorar sus productos;
 
 ## Cada mes
 
+- **Repositorio de productos:** cuando cambie el REPOSITORIO_PRODUCTO.xlsx, corre `python3 tools/repositorio_json.py ruta/REPOSITORIO_PRODUCTO.xlsx` (genera `repositorio.json`) y sube ese archivo a GitHub. La app solo ofrece categorías, líneas, grupos, sub grupos, marcas y capacidades que estén en ese archivo.
+
 - **Vendidos y maestro:** ya no los usa la app de captura; se pueden dejar o borrar. Si los necesitas de nuevo, el formato es este (*Add file → Upload files*):
   `cod · desc · marca · cap · sub · linea · grupo` separados por tabulador, con encabezado.
 - Si cambias `Code.gs`: **Implementar → Administrar implementaciones → ✏️ → Versión: nueva** (así la URL no cambia).

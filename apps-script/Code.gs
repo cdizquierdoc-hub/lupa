@@ -17,7 +17,7 @@
  *  - Config   : PIN del equipo.
  */
 
-const VERSION_SCRIPT = '2026.11.10-ia5';
+const VERSION_SCRIPT = '2026.11.10-ia6';
 const HOJA_CATALOGO = 'Catalogo';
 const HOJA_CAPTURAS = 'Capturas';
 const HOJA_CONFIG = 'Config';
@@ -89,8 +89,10 @@ function config_(clave) {
 }
 
 function promptLectura_(listas) {
-  const cats = (listas.categorias || []).join(', ');
   const tiendas = (listas.tiendas || []).join(', ');
+  const repo = listas.repo || { lineas: [], marcas: [] };
+  const lineas = (repo.lineas || []).map(l => '- ' + l.linea + ' (' + l.categoria + '): grupos ' + (l.grupos || []).join(', ')).join('\n');
+  const marcas = (repo.marcas || []).join(', ');
   return [
     'Eres el lector de preciadores de Cresa, un retail de electrodomésticos en Ecuador.',
     'La foto muestra un preciador, cartel, sticker o hoja de crédito, impresa, digital, de tinta electrónica o escrita a mano.',
@@ -123,26 +125,34 @@ function promptLectura_(listas) {
     '- Si se ve la cuota pero no el número de cuotas, num_cuotas null y aviso.',
     '- Los precios van como número con punto decimal (250, 1299.99), sin símbolo.',
     '',
-    'Características del producto (muy importantes para comparar después):',
+    'Clasificación con el repositorio de Cresa (OBLIGATORIO usar solo estas opciones, tal como están escritas):',
+    'linea: una de las líneas de esta lista. grupo: uno de los grupos de esa línea. Si no encaja ninguna, null.',
+    'Líneas y sus grupos:',
+    lineas,
+    'marca: una de estas marcas, tal como está escrita. Si la marca no está en la lista, null.',
+    'Marcas: ' + marcas,
+    'sub_grupo: el tipo específico del producto en MAYÚSCULAS, como aparece en el cartel o la caja (ej. SIDE BY SIDE, UHD, QLED, SPLIT INVERTER, A GAS, TOP MOUNT NO FROST, LAVADORA CS). Si no se sabe, null.',
+    '',
+    'Características del producto (muy importantes, para comparar):',
     '- medidas.litros: capacidad en litros (684L → 684; 1.5 L → 1.5).',
-    '- medidas.btu: BTU tal como aparece (12BTU o 12 BTU → 12; 12000 BTU → 12000).',
+    '- medidas.btu: BTU tal como aparece (12BTU → 12; 12000 BTU → 12000).',
     '- medidas.pulgadas: tamaño de pantalla (43" → 43).',
-    '- medidas.kg: peso o capacidad en kg. medidas.pies3: pies cúbicos. medidas.watts: potencia.',
+    '- medidas.kg: peso o capacidad de lavado en kilos. medidas.pies3: pies cúbicos. medidas.watts: potencia.',
+    '- medidas.quemadores: número de quemadores de una cocina (4 quemadores → 4).',
+    '- medidas.cc: cilindrada de una moto (149 cc → 149).',
     '- especificaciones: texto corto con la tecnología y tipo visibles, separados por " · ". Ej.: "Split inverter · Blanco · Frío", "SBS · Acero inoxidable · Dispensador de agua", "QLED · Smart TV · 4K".',
     '- Usa la descripción de la caja o de la línea del modelo. Si una medida no se ve, null.',
     '',
     'Otros campos:',
     '- tienda: la cadena si se ve su nombre o logo. Opciones conocidas: ' + tiendas + '. Si no se ve, null.',
     '- codigo: el código o modelo tal como está escrito, respetando letras, números y guiones. Si no se lee, null.',
-    '- marca: la marca visible (logo o texto de la caja), por ejemplo LG, Samsung, Durama, Warienhaus.',
-    '- categoria: una de: ' + cats + '.',
     '- producto: descripción corta (tipo + marca + medida + tecnología), por ejemplo "Split inverter 12 BTU" o "TV Philips 43\" FHD LED Smart TV".',
     '- regalo: regalo o promo que diga el cartel, o null.',
     '- aviso: null si todo se lee claro. Si hay cualquier duda, escribe UNA frase corta en español (máximo 140 caracteres): foto cortada, reflejo, dos productos, cuota sin contado, número sin rótulo, código ilegible, etc.',
     '',
     'Responde SOLO con este JSON:',
-    '{"tienda":null,"producto":null,"marca":null,"codigo":null,"categoria":null,"especificaciones":null,',
-    '"medidas":{"litros":null,"btu":null,"pulgadas":null,"kg":null,"pies3":null,"watts":null},',
+    '{"tienda":null,"producto":null,"marca":null,"codigo":null,"linea":null,"grupo":null,"sub_grupo":null,"especificaciones":null,',
+    '"medidas":{"litros":null,"btu":null,"pulgadas":null,"kg":null,"pies3":null,"watts":null,"quemadores":null,"cc":null},',
     '"precio_contado":null,"precio_antes":null,"pvp_lista":null,"cuota":null,"num_cuotas":null,"frecuencia":null,"entrada":null,"precio_final":null,"plan_credito":null,',
     '"regalo":null,"aviso":null,"legible":true}'
   ].join('\n');
@@ -202,10 +212,12 @@ function probarGemini() {
 /* ---------- lógica ---------- */
 const COLS_CAPTURAS = ['id', 'fecha', 'autor', 'agencia', 'competidor', 'origen', 'producto', 'marca', 'modelo', 'categoria',
   'contado', 'antes', 'pvp_lista', 'cuota', 'num_cuotas', 'frecuencia', 'entrada', 'precio_final', 'plan', 'regalo',
-  'btu', 'litros', 'pulgadas', 'kg', 'pies3', 'watts', 'especificaciones', 'foto_id', 'foto', 'texto_ocr', 'editado', 'editado_por'];
+  'btu', 'litros', 'pulgadas', 'kg', 'pies3', 'watts', 'especificaciones', 'foto_id', 'foto', 'texto_ocr', 'editado', 'editado_por',
+  'categoria_comercial', 'linea', 'grupo', 'sub_grupo', 'capacidad'];
 const CAMPOS_NUM_ = ['contado', 'antes', 'pvp_lista', 'cuota', 'num_cuotas', 'entrada', 'precio_final', 'btu', 'litros', 'pulgadas', 'kg', 'pies3', 'watts'];
 const CAMPOS_EDITABLES_ = ['agencia', 'competidor', 'producto', 'marca', 'modelo', 'categoria', 'contado', 'antes', 'pvp_lista', 'cuota',
-  'num_cuotas', 'frecuencia', 'entrada', 'precio_final', 'plan', 'regalo', 'btu', 'litros', 'pulgadas', 'kg', 'pies3', 'watts', 'especificaciones'];
+  'num_cuotas', 'frecuencia', 'entrada', 'precio_final', 'plan', 'regalo', 'btu', 'litros', 'pulgadas', 'kg', 'pies3', 'watts', 'especificaciones',
+  'categoria_comercial', 'linea', 'grupo', 'sub_grupo', 'capacidad'];
 
 /* Las columnas se buscan por nombre en la fila 1; si falta alguna, se agrega al final. Así una hoja vieja sigue sirviendo. */
 function cabecera_(sh) {
@@ -248,7 +260,8 @@ function guardar_(c, fotoBase64) {
       contado: num_(c.contado), antes: num_(c.antes), pvp_lista: num_(c.pvp_lista), cuota: num_(c.cuota), num_cuotas: num_(c.ncuotas),
       frecuencia: c.frecuencia || '', entrada: num_(c.entrada), precio_final: num_(c.precio_final), plan: c.plan || '', regalo: c.regalo || '',
       btu: num_(c.btu), litros: num_(c.litros), pulgadas: num_(c.pulgadas), kg: num_(c.kg), pies3: num_(c.pies3), watts: num_(c.watts),
-      especificaciones: c.especificaciones || '', foto_id: fotoId, foto: fotoUrl,
+      especificaciones: c.especificaciones || '', categoria_comercial: c.categoria_comercial || '', linea: c.linea || '',
+      grupo: c.grupo || '', sub_grupo: c.sub_grupo || '', capacidad: c.capacidad || '', foto_id: fotoId, foto: fotoUrl,
       texto_ocr: String(c.texto_ocr || '').slice(0, 2000), editado: '', editado_por: ''
     };
     sh.appendRow(head.map(h => obj[h] === undefined || obj[h] === null ? '' : obj[h]));
