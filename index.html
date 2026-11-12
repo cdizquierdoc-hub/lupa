@@ -571,7 +571,7 @@ function selAg(id,val){
 }
 // Listas que se pueden buscar (escribes y se filtran)
 const COMBOS={
-  tienda:{label:"Escribe para buscar el preciador…",opts:()=>[...CFG.COMPETIDORES,...CFG.CADENAS],
+  tienda:{label:"Escribe para buscar el preciador…",opts:()=>CFG.COMPETIDORES,
     get:()=>S.tienda,set:v=>{S.tienda=v;ls.set("ch_tienda",v);}},
   agencia:{label:"Escribe para buscar tu agencia…",opts:()=>CFG.AGENCIAS,
     get:()=>S.agencia,set:v=>{S.agencia=v;ls.set("ch_agencia",v);}}
@@ -602,7 +602,7 @@ function viewCapture(){
     <div class="small muted">Se recuerda la última. Cámbiala si hoy estás en otra.</div></section>`;
   if(S.flow==="idle"){
     h+=`<section class="card"><div class="lbl">¿De quién es el preciador?</div>${comboHTML("tienda")}
-      <div class="small muted">Escribe para buscar o elige de la lista. Puede ser competencia o una de nuestras cadenas.</div></section>
+      <div class="small muted">Escribe para buscar o elige de la lista de competencia.</div></section>
     <section class="card"><div class="shoot"><div class="big">${ICON.cam}</div><strong>Foto al preciador</strong>
       <strong style="font-size:15px;text-align:center">Toma foto al preciador y trata de conseguir la mayor cantidad de información sobre esa promo o combo.</strong>
       <span class="muted small">Una etiqueta por foto. Puedes elegir varias de la galería.</span>
