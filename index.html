@@ -148,6 +148,11 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
 
 .filebtn{position:relative;overflow:hidden;cursor:pointer}
 .filebtn input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;font-size:0}
+#busy{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.55);touch-action:none}
+#busy.on{display:flex}
+#busy .box{background:var(--card,#fff);color:var(--fg,#111);border-radius:16px;padding:22px 26px;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:80%;text-align:center;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+#busy .spin{width:34px;height:34px;border:4px solid rgba(127,127,127,.3);border-top-color:#2563eb;border-radius:50%;animation:spinb .8s linear infinite}
+@keyframes spinb{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -160,6 +165,7 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
 <p class="muted" style="text-align:center;font-size:11px;margin:0 0 calc(90px + env(safe-area-inset-bottom,0px))">LUPA v2026.11.10-3</p>
 <nav class="tabs"><div class="tabs-in" id="tabs"></div></nav>
 <div id="toastBox"></div>
+<div id="busy" role="alert" aria-live="assertive"><div class="box"><span class="spin"></span><span id="busyMsg">Guardando en el Sheet…</span><small style="font-weight:400">No cierres ni toques la pantalla</small></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script src="parser.js?v=2026.11.10-3"></script>
@@ -186,7 +192,7 @@ const ICON={
 const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch{return false}}};
 const S={tab:"capturar",flow:"idle",cola:[],total:0,hecha:0,photoUrl:"",photo:null,draft:null,ocrPct:0,ocrMsg:"",iaError:"",iaDetalle:"",
   editing:null,mis:ls.get("ch_mis",[]),perfil:ls.get("ch_perfil",null),tienda:ls.get("ch_tienda","Artefacta"),
-  agencia:ls.get("ch_agencia",""),online:navigator.onLine,misMsg:"",faltan:[]};
+  agencia:ls.get("ch_agencia",""),online:navigator.onLine,misMsg:"",faltan:[],guardando:false,capId:null};
 
 /* ============ utilidades ============ */
 const $=s=>document.querySelector(s);
@@ -215,8 +221,21 @@ async function apiGet(action,extra=""){
   const j=await r.json(); if(!j.ok)throw new Error(j.error||"error"); return j;
 }
 async function apiPost(body){
-  const r=await fetch(CFG.API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...body,pin:S.perfil?.pin||""})});
-  const j=await r.json(); if(!j.ok)throw new Error(j.error||"error"); return j;
+  const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),30000);
+  try{
+    const r=await fetch(CFG.API_URL,{method:"POST",signal:ctl.signal,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...body,pin:S.perfil?.pin||""})});
+    const j=await r.json(); if(!j.ok)throw new Error(j.error||"error"); return j;
+  }finally{clearTimeout(tm);}
+}
+// Pantalla de "guardando": bloquea toques hasta que termine
+function ocupado(on,msg){
+  $("#busyMsg").textContent=msg||"Guardando en el Sheet…";
+  $("#busy").classList.toggle("on",!!on);
+}
+async function conBloqueo(fn,msg){
+  if(S.guardando)return;
+  S.guardando=true;ocupado(true,msg);
+  try{await fn();}finally{S.guardando=false;ocupado(false);}
 }
 
 /* ============ lectura de la foto ============ */
@@ -347,6 +366,7 @@ function escribirManual(){
   S.draft={_leido:false};S.photo=null;S.photoUrl="";S.cola=[];S.total=1;S.hecha=0;S.flow="review";render();
 }
 function siguiente(){
+  S.capId=null;
   if(S.cola.length){onPhoto(S.cola.shift());return;}
   S.flow="idle";S.draft=null;S.photo=null;S.photoUrl="";S.total=0;S.hecha=0;render();
 }
@@ -383,15 +403,20 @@ function readForm(){
   return o;
 }
 async function guardarCaptura(){
+  if(S.guardando)return;
   if(!S.agencia){toast("Elige primero la agencia donde estás");return;}
   const v=readForm();
   if(!validarRepo(v))return;
   if(!v.producto&&!v.modelo){toast("Escribe el producto o el código");return;}
   if(v.contado==null&&v.cuota==null){toast("Falta el precio de contado o la cuota");return;}
-  const cap={id:uid(),creado:Date.now(),autor:S.perfil.nombre,agencia:S.agencia,competidor:S.tienda,
+  // mismo id aunque toquen dos veces: el servidor ignora el repetido
+  S.capId=S.capId||uid();
+  const cap={id:S.capId,creado:Date.now(),autor:S.perfil.nombre,agencia:S.agencia,competidor:S.tienda,
     origen:isCresa(S.tienda)?"cresa":"competencia",...v,categoria_comercial:v.catc,categoria:v.linea,texto_ocr:S.draft?.texto||""};
-  const res=await enviar({cap,foto:S.photo||""});
+  let res;
+  await conBloqueo(async()=>{res=await enviar({cap,foto:S.photo||""});});
   if(res==="pin"){toast("El PIN no coincide. Revisa con tu coordinador.");return;}
+  S.capId=null;
   S.mis=[capParaMis(cap),...S.mis].slice(0,300);ls.set("ch_mis",S.mis);
   toast(res==="ok"?"Guardada en el Sheet":"Sin señal: quedó en el teléfono y se envía sola");
   S.hecha++;siguiente();
@@ -403,15 +428,17 @@ async function guardarEdicion(){
   delete campos.ncuotas;
   if(!campos.agencia){toast("Elige la agencia");return;}
   if(!navigator.onLine||!CFG.API_URL){toast("Sin señal: no se pudo guardar el cambio");return;}
-  try{
-    await apiPost({action:"editar",id:c.id,autor:S.perfil.nombre,campos});
-    const nuevo={...c,...campos,ncuotas:v.ncuotas};
-    S.mis=S.mis.map(x=>x.id===c.id?nuevo:x);ls.set("ch_mis",S.mis);
-    S.editing=null;toast("Cambios guardados en el Sheet");render();
-  }catch(e){
-    const m={no_autor:"Solo quien capturó puede cambiarla",no_encontrada:"Esta captura todavía no llegó al Sheet: espera la señal"}[e.message]||"No se pudo guardar el cambio";
-    toast(m);
-  }
+  await conBloqueo(async()=>{
+    try{
+      await apiPost({action:"editar",id:c.id,autor:S.perfil.nombre,campos});
+      const nuevo={...c,...campos,ncuotas:v.ncuotas};
+      S.mis=S.mis.map(x=>x.id===c.id?nuevo:x);ls.set("ch_mis",S.mis);
+      S.editing=null;toast("Cambios guardados en el Sheet");render();
+    }catch(e){
+      const m={no_autor:"Solo quien capturó puede cambiarla",no_encontrada:"Esta captura todavía no llegó al Sheet: espera la señal"}[e.message]||"No se pudo guardar el cambio";
+      toast(m);
+    }
+  },"Guardando cambios…");
 }
 async function cargarMis(){
   if(!navigator.onLine||!CFG.API_URL||!S.perfil)return;
