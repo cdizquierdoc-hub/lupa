@@ -40,7 +40,7 @@ function setup() {
   mk(HOJA_CATALOGO, COLS_CATALOGO);
   mk(HOJA_CAPTURAS, COLS_CAPTURAS);
   const cfg = mk(HOJA_CONFIG, ['clave', 'valor']);
-  if (cfg.getLastRow() < 2) cfg.appendRow(['pin', 'black2026']);
+  if (cfg.getLastRow() < 2) cfg.appendRow(['aviso', 'Los secretos van en Propiedades del script (PIN, GEMINI_KEY)']);
   const filas = cfg.getDataRange().getValues().map(r => String(r[0]).toLowerCase());
   if (filas.indexOf('gemini_key') < 0) cfg.appendRow(['gemini_key', '']);
   carpeta_();
@@ -81,7 +81,11 @@ function doPost_(e) {
  * Si no hay clave o se acaba la cuota, la app usa el lector básico del teléfono. */
 const MODELOS_GEMINI = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-flash-latest'];
 
+/* Secretos (PIN, clave de Gemini) viven en Propiedades del script, no en el Sheet.
+   Así no se ven al compartir el Sheet ni en las copias que descargan. Si no existen, se busca en la pestaña Config (compatibilidad). */
 function config_(clave) {
+  const prop = PropertiesService.getScriptProperties().getProperty(String(clave).toUpperCase());
+  if (prop) return String(prop).trim();
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_CONFIG);
   if (!sh) return '';
   const r = sh.getDataRange().getValues().find(x => String(x[0]).trim().toLowerCase() === clave);
@@ -328,11 +332,9 @@ function leer_(nombre) {
 }
 
 function pinOk_(pin) {
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJA_CONFIG);
-  if (!sh) return true;
-  const rows = sh.getDataRange().getValues();
-  const r = rows.find(x => String(x[0]).toLowerCase() === 'pin');
-  return !r || !String(r[1]) || String(pin || '') === String(r[1]);
+  const real = config_('pin');
+  // sin PIN configurado no se escribe nada: así no queda abierto si olvidas ponerlo
+  return !!real && String(pin || '') === real;
 }
 
 function carpeta_() {
