@@ -153,6 +153,11 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
 #busy .box{background:var(--card,#fff);color:var(--fg,#111);border-radius:16px;padding:22px 26px;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:80%;text-align:center;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.3)}
 #busy .spin{width:34px;height:34px;border:4px solid rgba(127,127,127,.3);border-top-color:#2563eb;border-radius:50%;animation:spinb .8s linear infinite}
 @keyframes spinb{to{transform:rotate(360deg)}}
+.combo{position:relative}
+.combo-ul{position:absolute;left:0;right:0;top:100%;margin:4px 0 0;padding:4px 0;list-style:none;max-height:260px;overflow:auto;background:var(--card,#fff);color:inherit;border:1px solid rgba(127,127,127,.4);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.2);z-index:30}
+.combo-ul li{padding:12px 14px;min-height:44px;display:flex;align-items:center;cursor:pointer}
+.combo-ul li:active,.combo-ul li:hover{background:rgba(127,127,127,.18)}
+.combo-ul li.muted{cursor:default}
 </style>
 </head>
 <body>
@@ -564,6 +569,26 @@ function selAg(id,val){
   if(!CFG.AGENCIAS.length)return `<input id="${id}" value="${esc(val||"")}" placeholder="Escribe tu agencia">`;
   return `<select id="${id}"><option value="">— Elige la agencia —</option>${CFG.AGENCIAS.map(a=>`<option ${a===val?"selected":""}>${esc(a)}</option>`).join("")}</select>`;
 }
+// Listas que se pueden buscar (escribes y se filtran)
+const COMBOS={
+  tienda:{label:"Escribe para buscar el preciador…",opts:()=>[...CFG.COMPETIDORES,...CFG.CADENAS],
+    get:()=>S.tienda,set:v=>{S.tienda=v;ls.set("ch_tienda",v);}},
+  agencia:{label:"Escribe para buscar tu agencia…",opts:()=>CFG.AGENCIAS,
+    get:()=>S.agencia,set:v=>{S.agencia=v;ls.set("ch_agencia",v);}}
+};
+function comboHTML(key){
+  const c=COMBOS[key];
+  return `<div class="combo" data-combo="${key}"><input id="cb-${key}" value="${esc(c.get()||"")}" autocomplete="off" autocapitalize="characters" placeholder="${esc(c.label)}" aria-label="${esc(c.label)}" role="combobox" aria-expanded="false"><ul class="combo-ul" id="cbl-${key}" role="listbox" hidden></ul></div>`;
+}
+function comboFiltra(key,q){
+  const k=RKEY(q);
+  const todos=COMBOS[key].opts();
+  const res=(k?todos.filter(o=>RKEY(o).includes(k)):todos).slice(0,150);
+  const ul=$("#cbl-"+key);if(!ul)return;
+  ul.innerHTML=res.length?res.map(o=>`<li role="option" data-val="${esc(o)}">${esc(o)}</li>`).join(""):`<li class="muted">Sin coincidencias</li>`;
+  ul.hidden=false;$("#cb-"+key)?.setAttribute("aria-expanded","true");
+}
+function comboCierra(key){const ul=$("#cbl-"+key);if(ul)ul.hidden=true;$("#cb-"+key)?.setAttribute("aria-expanded","false");}
 function chip(c){return `<button class="chip" data-tienda="${esc(c)}" aria-pressed="${S.tienda===c}">${esc(c)}</button>`;}
 function viewOnboard(){
   return `<section class="card"><h2>Entrar a LUPA</h2>
@@ -573,13 +598,13 @@ function viewOnboard(){
     <button class="btn block" id="entrar">Entrar</button></section>`;
 }
 function viewCapture(){
-  let h=(REPO.ok?"":`<div class="banner">No se cargó el repositorio de productos: revisa la conexión y recarga.</div>`)+`<section class="card"><div class="lbl">Agencia donde estás hoy</div>${selAg("ag-sel",S.agencia)}
+  let h=(REPO.ok?"":`<div class="banner">No se cargó el repositorio de productos: revisa la conexión y recarga.</div>`)+`<section class="card"><div class="lbl">Agencia donde estás hoy</div>${CFG.AGENCIAS.length?comboHTML("agencia"):selAg("ag-sel",S.agencia)}
     <div class="small muted">Se recuerda la última. Cámbiala si hoy estás en otra.</div></section>`;
   if(S.flow==="idle"){
-    h+=`<section class="card"><div class="lbl">¿De quién es el preciador?</div>
-      <div class="small muted">Competencia</div><div class="chips" role="group" aria-label="Competidor">${CFG.COMPETIDORES.map(chip).join("")}</div>
-      <div class="small muted">Nuestras cadenas</div><div class="chips" role="group" aria-label="Cadena Cresa">${CFG.CADENAS.map(chip).join("")}</div></section>
+    h+=`<section class="card"><div class="lbl">¿De quién es el preciador?</div>${comboHTML("tienda")}
+      <div class="small muted">Escribe para buscar o elige de la lista. Puede ser competencia o una de nuestras cadenas.</div></section>
     <section class="card"><div class="shoot"><div class="big">${ICON.cam}</div><strong>Foto al preciador</strong>
+      <strong style="font-size:15px;text-align:center">Toma foto al preciador y trata de conseguir la mayor cantidad de información sobre esa promo o combo.</strong>
       <span class="muted small">Una etiqueta por foto. Puedes elegir varias de la galería.</span>
       <input id="cam" type="file" accept="image/*" capture="environment" aria-label="Tomar foto del preciador"></div>
       <div class="filebtn btn ghost block">Elegir fotos de la galería<input id="gal" type="file" accept="image/*" multiple aria-label="Elegir fotos de la galería"></div>
@@ -706,7 +731,33 @@ function render(){
 }
 
 /* ============ eventos ============ */
+$("#app").addEventListener("mousedown",e=>{if(e.target.closest(".combo-ul li[data-val]"))e.preventDefault();});
+$("#app").addEventListener("focusin",e=>{
+  if(e.target.id&&e.target.id.startsWith("cb-")){const key=e.target.id.slice(3);comboFiltra(key,"");}
+});
+$("#app").addEventListener("focusout",e=>{
+  if(!(e.target.id&&e.target.id.startsWith("cb-")))return;
+  const key=e.target.id.slice(3);
+  setTimeout(()=>{
+    comboCierra(key);
+    const inp=$("#cb-"+key);if(!inp)return;
+    const k=RKEY(inp.value);
+    const hit=COMBOS[key].opts().find(o=>RKEY(o)===k);
+    if(hit&&hit!==COMBOS[key].get()){COMBOS[key].set(hit);render();}
+    else if(!hit)inp.value=COMBOS[key].get()||"";
+  },150);
+});
+$("#app").addEventListener("input",e=>{
+  if(e.target.id&&e.target.id.startsWith("cb-"))comboFiltra(e.target.id.slice(3),e.target.value);
+});
 $("#app").addEventListener("click",e=>{
+  const li=e.target.closest(".combo-ul li[data-val]");
+  if(li){
+    const key=li.closest(".combo").dataset.combo;
+    COMBOS[key].set(li.dataset.val);
+    if(key==="agencia")renderNet();
+    render();return;
+  }
   const t=e.target.closest("button,[data-edit],[data-tienda]");
   if(!t)return;
   if(t.dataset.tienda){S.tienda=t.dataset.tienda;ls.set("ch_tienda",S.tienda);render();return;}
