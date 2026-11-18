@@ -711,7 +711,7 @@ function viewOnboard(){
   return `<section class="card"><h2>Entrar a LUPA</h2>
     <div class="small muted">Tu nombre y el PIN del equipo. Nada más. La agencia la eliges al capturar.</div>
     <div class="field"><label for="ob-nombre">Tu nombre</label><input id="ob-nombre" autocomplete="name" value=""></div>
-    <div class="field"><label for="ob-pin">PIN del equipo</label><input id="ob-pin" inputmode="numeric" type="password" autocomplete="off"></div>
+    <div class="field"><label for="ob-pin">PIN del equipo</label><input id="ob-pin" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
     <button class="btn block" id="entrar">Entrar</button></section>`;
 }
 function viewCapture(){
