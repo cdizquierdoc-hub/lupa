@@ -158,6 +158,9 @@ details pre{white-space:pre-wrap;font-size:13px;background:var(--paper);padding:
 .combo-ul li{padding:12px 14px;min-height:44px;display:flex;align-items:center;cursor:pointer}
 .combo-ul li:active,.combo-ul li:hover{background:rgba(127,127,127,.18)}
 .combo-ul li.muted{cursor:default}
+.regalo-box{border:2px solid var(--tag);background:var(--card);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.regalo-box label{font-weight:700;color:var(--ink)}
+.regalo-box input{width:100%;border:1.5px solid var(--line);background:var(--paper);border-radius:10px;padding:11px 12px;font-size:16px;min-width:0}
 </style>
 </head>
 <body>
@@ -411,13 +414,14 @@ async function guardarCaptura(){
   if(S.guardando)return;
   if(!S.agencia){toast("Elige primero la agencia donde estás");return;}
   const v=readForm();
+  if(!v.competidor){toast("Elige de quién es el preciador");return;}
   if(!validarRepo(v))return;
   if(!v.producto&&!v.modelo){toast("Escribe el producto o el código");return;}
   if(v.contado==null&&v.cuota==null){toast("Falta el precio de contado o la cuota");return;}
   // mismo id aunque toquen dos veces: el servidor ignora el repetido
   S.capId=S.capId||uid();
   const cap={id:S.capId,creado:Date.now(),autor:S.perfil.nombre,agencia:S.agencia,competidor:S.tienda,
-    origen:isCresa(S.tienda)?"cresa":"competencia",...v,categoria_comercial:v.catc,categoria:v.linea,texto_ocr:S.draft?.texto||""};
+    origen:isCresa(v.competidor)?"cresa":"competencia",...v,categoria_comercial:v.catc,categoria:v.linea,texto_ocr:S.draft?.texto||""};
   let res;
   await conBloqueo(async()=>{res=await enviar({cap,foto:S.photo||""});});
   if(res==="pin"){toast("El PIN no coincide. Revisa con tu coordinador.");return;}
@@ -555,6 +559,84 @@ function validarRepo(v){
   if(falta.length){S.faltan=falta;S.draft={...S.draft,...v};toast("Falta: "+falta.map(k=>ETIQ_REPO[k]).join(", "));render();return false;}
   S.faltan=[];return true;
 }
+/* ============ reconocer lo que se escribe a mano en la descripción ============ */
+const PAL=s=>" "+norm(String(s||"")).replace(/[^a-z0-9]+/g," ").trim()+" ";
+let IDX=null;
+function idxRepo(){
+  if(IDX)return IDX;
+  IDX={lineas:[],grupos:[],subs:[]};
+  REPO.info.forEach((inf,linea)=>{
+    IDX.lineas.push({nombre:linea,linea});
+    inf.grupos.forEach(g=>IDX.grupos.push({nombre:g,linea,grupo:g}));
+    inf.subsDe.forEach((subs,g)=>subs.forEach(x=>IDX.subs.push({nombre:x,linea,grupo:g})));
+  });
+  return IDX;
+}
+// el nombre más largo del repositorio que aparezca como palabra(s) en el texto
+function mejorEn(T,items){
+  let best=null,len=0;
+  for(const it of items){
+    const p=PAL(it.nombre).trim();
+    if(p.length<3||/^(otro|otros)$/.test(p))continue;
+    if(T.includes(" "+p+" ")&&p.length>len){best=it;len=p.length;}
+  }
+  return best;
+}
+function reconocerRepo(T){
+  const I=idxRepo();
+  const s=mejorEn(T,I.subs);
+  if(s)return {linea:s.linea,grupo:s.grupo,sub_grupo:s.nombre};
+  const g=mejorEn(T,I.grupos);
+  if(g)return {linea:g.linea,grupo:g.grupo};
+  const l=mejorEn(T,I.lineas);
+  if(l)return {linea:l.linea};
+  return {};
+}
+function medidasDesde(txt){
+  const t=String(txt||"").replace(/,/g,".");
+  const g=re=>{const m=t.match(re);return m?parseFloat(m[1]):null;};
+  const out={
+    btu:g(/(\d{1,6}(?:\.\d+)?)\s*BTU/i),
+    litros:g(/(\d{1,4}(?:\.\d+)?)\s*(?:LITROS?|LTS?)\b/i),
+    pulgadas:g(/(\d{1,3}(?:\.\d+)?)\s*(?:"|”|PULG\w*)/i),
+    kg:g(/(\d{1,4}(?:\.\d+)?)\s*(?:KGS?|KILOS?)\b/i),
+    pies3:g(/(\d{1,3}(?:\.\d+)?)\s*(?:PIES|PIE|FT3)\b/i),
+    watts:g(/(\d{2,5}(?:\.\d+)?)\s*(?:WATTS?|W)\b/i),
+    cc:g(/(\d{2,4}(?:\.\d+)?)\s*(?:CC|CM3|CM³)\b/i)
+  };
+  Object.keys(out).forEach(k=>{if(out[k]==null)delete out[k];});
+  return out;
+}
+const MEDIDAS=["litros","btu","pulgadas","kg","pies3","watts"];
+// Devuelve solo los campos vacíos que sí se pueden reconocer del texto (nunca pisa lo que ya escribió o eligió la persona)
+function sugerirDesdeTexto(cur){
+  if(!REPO.ok)return {};
+  const txt=[cur.producto,cur.especificaciones].filter(Boolean).join(" ");
+  const T=PAL(txt);
+  if(T.trim()==="")return {};
+  const fill={};
+  const rec=reconocerRepo(T);
+  // cadena (categoría, línea, grupo, sub grupo) solo si aún no hay línea y no contradice la categoría elegida
+  const puedeCadena=!cur.linea&&(!cur.catc||(rec.linea&&REPO.catcOf.get(rec.linea)===cur.catc));
+  if(rec.linea&&puedeCadena){
+    fill.linea=rec.linea;fill.catc=REPO.catcOf.get(rec.linea)||"";
+    if(rec.grupo&&!cur.grupo)fill.grupo=rec.grupo;
+    if(rec.sub_grupo&&!cur.sub_grupo)fill.sub_grupo=rec.sub_grupo;
+  }
+  const lin=cur.linea||fill.linea||"";
+  const marca=mejorEn(T,REPO.marcas.map(m=>({nombre:m})));
+  if(marca&&!cur.marca)fill.marca=marca.nombre;
+  const med=medidasDesde(txt);
+  MEDIDAS.forEach(k=>{if(med[k]!=null&&(cur[k]==null||cur[k]===""))fill[k]=med[k];});
+  if(lin&&!cur.capacidad){
+    const todas={...med};
+    MEDIDAS.forEach(k=>{if(cur[k]!=null&&cur[k]!=="")todas[k]=cur[k];});
+    const cap=capacidadDesde(lin,todas);
+    if(cap)fill.capacidad=cap;
+  }
+  return fill;
+}
+
 function draftDesdeCap(c){
   return {producto:c.producto||"",marca:c.marca||"",modelo:c.modelo||"",
     catc:c.categoria_comercial||"",linea:c.linea||"",grupo:c.grupo||"",sub_grupo:c.sub_grupo||"",capacidad:c.capacidad||"",
@@ -576,14 +658,49 @@ const COMBOS={
   agencia:{label:"Escribe para buscar tu agencia…",opts:()=>CFG.AGENCIAS,
     get:()=>S.agencia,set:v=>{S.agencia=v;ls.set("ch_agencia",v);}}
 };
-function comboHTML(key){
-  const c=COMBOS[key];
-  return `<div class="combo" data-combo="${key}"><input id="cb-${key}" value="${esc(c.get()||"")}" autocomplete="off" autocapitalize="characters" placeholder="${esc(c.label)}" aria-label="${esc(c.label)}" role="combobox" aria-expanded="false"><ul class="combo-ul" id="cbl-${key}" role="listbox" hidden></ul></div>`;
+function comboBox(key,label,val){
+  return `<div class="combo" data-combo="${key}"><input id="cb-${key}" value="${esc(val||"")}" autocomplete="off" autocapitalize="characters" placeholder="${esc(label)}" aria-label="${esc(label)}" role="combobox" aria-expanded="false"><ul class="combo-ul" id="cbl-${key}" role="listbox" hidden></ul></div>`;
+}
+function comboHTML(key){const c=COMBOS[key];return comboBox(key,c.label,c.get());}
+// Los <select> también se buscan: se envuelven con un buscador y el select queda oculto (sigue siendo la fuente de datos)
+const esSel=k=>k.startsWith("s_");
+const selDe=k=>document.getElementById(k.slice(2));
+function comboOpts(key){
+  if(esSel(key)){const s=selDe(key);return s?[...s.options].filter(o=>o.value!=="").map(o=>o.value):[];}
+  return COMBOS[key].opts();
+}
+function comboGet(key){
+  if(esSel(key)){const s=selDe(key);return s?s.value:"";}
+  return COMBOS[key].get()||"";
+}
+function comboElige(key,val){
+  if(esSel(key)){
+    const s=selDe(key);if(!s)return;
+    s.value=val;
+    const inp=$("#cb-"+key);if(inp)inp.value=val;
+    s.dispatchEvent(new Event("change",{bubbles:true}));
+    return;
+  }
+  COMBOS[key].set(val);
+  if(key==="agencia")renderNet();
+  render();
+}
+function sbWrap(){
+  document.querySelectorAll("#app select:not([data-sb])").forEach(sel=>{
+    if(!sel.id)return;
+    sel.dataset.sb="1";
+    const key="s_"+sel.id;
+    const tpl=document.createElement("template");
+    tpl.innerHTML=comboBox(key,"Escribe para buscar…",sel.value);
+    sel.before(tpl.content.firstElementChild);
+    sel.hidden=true;
+    document.querySelector(`label[for="${sel.id}"]`)?.setAttribute("for","cb-"+key);
+  });
 }
 function comboFiltra(key,q){
   const k=RKEY(q);
-  const todos=COMBOS[key].opts();
-  const res=(k?todos.filter(o=>RKEY(o).includes(k)):todos).slice(0,150);
+  const todos=comboOpts(key);
+  const res=(k?todos.filter(o=>RKEY(o).includes(k)):todos).slice(0,400);
   const ul=$("#cbl-"+key);if(!ul)return;
   ul.innerHTML=res.length?res.map(o=>`<li role="option" data-val="${esc(o)}">${esc(o)}</li>`).join(""):`<li class="muted">Sin coincidencias</li>`;
   ul.hidden=false;$("#cb-"+key)?.setAttribute("aria-expanded","true");
@@ -639,9 +756,10 @@ function reviewForm(d,opt={}){
   const n=k=>has(k)?esc(d[k]):"";
   const credito=["cuota","ncuotas","frecuencia","entrada","plan","precio_final","pvp_lista"].some(has);
   const tech=["litros","btu","pulgadas","kg","pies3","watts","especificaciones"].some(has);
-  const precios=["antes","regalo"].some(has);
+  const precios=["antes"].some(has);
   const avisos=ed?[]:avisosDe(d);
   const tienda=opt.tienda||S.tienda;
+  const TIENDAS=[...CFG.COMPETIDORES,...CFG.CADENAS];
   const img=opt.thumb||S.photoUrl;
   const iaNota=d._basico&&!ed?`<div class="banner"><b>No se usó la IA:</b> ${esc(iaErrTxt(S.iaError))}${S.iaDetalle?`<br><small style="word-break:break-word">Detalle: ${esc(S.iaDetalle)}</small>`:""}<br>El lector básico no entiende letra a mano; revisa bien.</div>`:"";
   const origen=d._ia?`<span class="pill good">Leído con IA</span>`:d._basico&&!ed?`<span class="pill warn">Lector básico</span>`:"";
@@ -653,7 +771,9 @@ function reviewForm(d,opt={}){
     ${iaNota}${avisos.length?`<div class="banner"><b>Revisa antes de guardar:</b><ul style="margin:6px 0 0 18px;padding:0">${avisos.map(a=>`<li>${esc(a)}</li>`).join("")}</ul></div>`:""}
     ${ed?`<div class="grid2">
       <div class="field"><label for="f-agencia">Agencia</label>${selAg("f-agencia",d.agencia)}</div>
-      <div class="field"><label for="f-tienda">Preciador de</label><select id="f-tienda">${opts([...CFG.COMPETIDORES,...CFG.CADENAS],d.competidor)}</select></div></div>`:""}
+      <div class="field"><label for="f-tienda">Preciador de</label><select id="f-tienda">${opts(TIENDAS,d.competidor)}</select></div></div>`
+      :`<div class="field"><label for="f-tienda">Preciador de (cámbialo si fue otra competencia)</label><select id="f-tienda">${opts(TIENDAS,tienda)}</select></div>`}
+    <div class="regalo-box"><label for="f-regalo">Regalo o adicional que están dando</label><input id="f-regalo" value="${v("regalo")}" placeholder="Ej.: regalo audífonos, 2da unidad al 50%, bono $20"></div>
     <div class="grid2">
       <div class="field full"><label for="f-producto">Producto</label><input id="f-producto" value="${v("producto")}" placeholder="Split inverter 12 BTU"></div>
       ${repoBloque(d)}
@@ -683,7 +803,6 @@ function reviewForm(d,opt={}){
       <div class="grid2" style="margin-top:10px">
         <div class="field"><label for="f-pvplista">PVP de lista $</label><input id="f-pvplista" inputmode="decimal" value="${n("pvp_lista")}"></div>
         <div class="field"><label for="f-antes">Precio antes (tachado) $</label><input id="f-antes" inputmode="decimal" value="${n("antes")}"></div>
-        <div class="field full"><label for="f-regalo">Regalo o promo</label><input id="f-regalo" value="${v("regalo")}"></div>
       </div></details>
     ${d.texto?`<details><summary>Ver texto leído</summary><pre>${esc(d.texto)}</pre></details>`:""}
     <button class="btn block" id="save">${ed?"Guardar cambios":"Guardar y seguir"}</button>
@@ -728,6 +847,7 @@ function renderNet(){
 function render(){
   renderTabs();renderNet();
   $("#app").innerHTML=!S.perfil?viewOnboard():(S.tab==="mis"?viewMis():viewCapture());
+  sbWrap();
 }
 
 /* ============ eventos ============ */
@@ -742,9 +862,9 @@ $("#app").addEventListener("focusout",e=>{
     comboCierra(key);
     const inp=$("#cb-"+key);if(!inp)return;
     const k=RKEY(inp.value);
-    const hit=COMBOS[key].opts().find(o=>RKEY(o)===k);
-    if(hit&&hit!==COMBOS[key].get()){COMBOS[key].set(hit);render();}
-    else if(!hit)inp.value=COMBOS[key].get()||"";
+    const hit=comboOpts(key).find(o=>RKEY(o)===k);
+    if(hit){if(hit!==comboGet(key))comboElige(key,hit);else inp.value=hit;}
+    else inp.value=comboGet(key);
   },150);
 });
 $("#app").addEventListener("input",e=>{
@@ -754,9 +874,7 @@ $("#app").addEventListener("click",e=>{
   const li=e.target.closest(".combo-ul li[data-val]");
   if(li){
     const key=li.closest(".combo").dataset.combo;
-    COMBOS[key].set(li.dataset.val);
-    if(key==="agencia")renderNet();
-    render();return;
+    comboCierra(key);comboElige(key,li.dataset.val);return;
   }
   const t=e.target.closest("button,[data-edit],[data-tienda]");
   if(!t)return;
@@ -773,6 +891,19 @@ $("#app").addEventListener("click",e=>{
 });
 $("#app").addEventListener("change",e=>{
   const id=e.target.id;
+  if(id==="f-producto"){
+    const cur=readForm();
+    const fill=sugerirDesdeTexto(cur);
+    const n=Object.keys(fill).length;
+    if(!n)return;
+    S.draft={...S.draft,...cur,...fill};S.faltan=[];render();
+    toast(`Reconocí ${n} dato(s) de la descripción. Revísalos.`);
+    return;
+  }
+  if(id==="f-tienda"){
+    if(!S.editing){S.tienda=e.target.value;ls.set("ch_tienda",S.tienda);}
+    S.draft={...S.draft,...readForm()};render();return;
+  }
   if(["f-catc","f-linea","f-grupo"].includes(id)){
     const nx={...S.draft,...readForm()};
     if(id==="f-catc"){nx.linea="";nx.grupo="";}
