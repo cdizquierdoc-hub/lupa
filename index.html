@@ -685,6 +685,8 @@ function comboOpts(key){
   if(esSel(key)){const s=selDe(key);return s?[...s.options].filter(o=>o.value!=="").map(o=>o.value):[];}
   return COMBOS[key].opts();
 }
+// Solo la marca admite un texto que no esté en el repositorio (marcas de la competencia que no tenemos)
+const puedeLibre=key=>key==="s_f-marca";
 function comboGet(key){
   if(esSel(key)){const s=selDe(key);return s?s.value:"";}
   return COMBOS[key].get()||"";
@@ -692,6 +694,7 @@ function comboGet(key){
 function comboElige(key,val){
   if(esSel(key)){
     const s=selDe(key);if(!s)return;
+    if(val&&![...s.options].some(o=>o.value===val))s.add(new Option(val,val));
     s.value=val;
     const inp=$("#cb-"+key);if(inp)inp.value=val;
     s.dispatchEvent(new Event("change",{bubbles:true}));
@@ -718,7 +721,9 @@ function comboFiltra(key,q){
   const todos=comboOpts(key);
   const res=(k?todos.filter(o=>RKEY(o).includes(k)):todos).slice(0,400);
   const ul=$("#cbl-"+key);if(!ul)return;
-  ul.innerHTML=res.length?res.map(o=>`<li role="option" data-val="${esc(o)}">${esc(o)}</li>`).join(""):`<li class="muted">Sin coincidencias</li>`;
+  const libre=q.trim();
+  const otra=puedeLibre(key)&&libre&&!todos.some(o=>RKEY(o)===RKEY(libre))?`<li role="option" data-val="${esc(libre)}"><b>Usar «${esc(libre)}»</b> (no está en la lista)</li>`:"";
+  ul.innerHTML=otra+(res.length?res.map(o=>`<li role="option" data-val="${esc(o)}">${esc(o)}</li>`).join(""):(otra?"":`<li class="muted">Sin coincidencias</li>`));
   ul.hidden=false;$("#cb-"+key)?.setAttribute("aria-expanded","true");
 }
 function comboCierra(key){const ul=$("#cbl-"+key);if(ul)ul.hidden=true;$("#cb-"+key)?.setAttribute("aria-expanded","false");}
@@ -757,6 +762,7 @@ function viewCapture(){
 function repoBloque(d){
   const o=repoOpciones(d.catc,d.linea,d.grupo);
   const f=k=>S.faltan?.includes(k)?"field warn":"field";
+  if(d.marca&&!o.marcas.includes(d.marca))o.marcas=[d.marca,...o.marcas];
   const opt=(arr,val)=>`<option value="">— Elige —</option>`+arr.map(a=>`<option ${a===val?"selected":""}>${esc(a)}</option>`).join("");
   return `<div class="${f("catc")} full"><label for="f-catc">Categoría comercial *</label><select id="f-catc">${opt(o.categorias,d.catc)}</select></div>
     <div class="${f("linea")} full"><label for="f-linea">Línea *</label><select id="f-linea">${opt(o.lineas,d.linea)}</select></div>
@@ -880,6 +886,7 @@ $("#app").addEventListener("focusout",e=>{
     const k=RKEY(inp.value);
     const hit=comboOpts(key).find(o=>RKEY(o)===k);
     if(hit){if(hit!==comboGet(key))comboElige(key,hit);else inp.value=hit;}
+    else if(puedeLibre(key)&&inp.value.trim())comboElige(key,inp.value.trim());
     else inp.value=comboGet(key);
   },150);
 });
